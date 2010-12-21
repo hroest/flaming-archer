@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<featureMap version="1.4" xsi:noNamespaceSchemaLocation="http://open-ms.sourceforge.net/schemas/FeatureXML_1_4.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+	<dataProcessing completion_time="1999-12-31T23:59:59">
+		<software name="FileFilter" version="version_string" />
+		<processingAction name="Data filtering" />
+		<userParam type="string" name="parameter: mode" value="test_mode"/>
+	</dataProcessing>
+	<featureList count="1">
+		<feature id="f_12">
+			<position dim="0">945.103</position>
+			<position dim="1">471.142</position>
+			<intensity>65754</intensity>
+			<quality dim="0">0.0717002</quality>
+			<quality dim="1">0.603055</quality>
+			<overallquality>0.511392</overallquality>
+			<charge>3</charge>
+			<model name="ProductModel2D">
+				<param name="MZ" value="IsotopeModel"/>
+				<param name="RT" value="BiGaussModel"/>
+				<param name="cutoff" value="0"/>
+				<param name="intensity_scaling" value="6.4706e+06"/>
+				<param name="MZ:charge" value="3"/>
+				<param name="MZ:cutoff" value="0"/>
+				<param name="MZ:intensity_scaling" value="1"/>
+				<param name="MZ:interpolation_step" value="0.1"/>
+				<param name="MZ:averagines:C" value="0.0443"/>
+				<param name="MZ:averagines:H" value="0"/>
+				<param name="MZ:averagines:N" value="0.0037"/>
+				<param name="MZ:averagines:O" value="0.022"/>
+				<param name="MZ:averagines:S" value="0"/>
+				<param name="MZ:isotope:distance" value="1.00049"/>
+				<param name="MZ:isotope:maximum" value="1000000"/>
+				<param name="MZ:isotope:stdev" value="0.03"/>
+				<param name="MZ:isotope:trim_right_cutoff" value="0.001"/>
+				<param name="MZ:statistics:mean" value="471.418"/>
+				<param name="RT:cutoff" value="0"/>
+				<param name="RT:intensity_scaling" value="1"/>
+				<param name="RT:interpolation_step" value="0.1"/>
+				<param name="RT:bounding_box:max" value="983.284"/>
+				<param name="RT:bounding_box:min" value="900.807"/>
+				<param name="RT:statistics:mean" value="945.103"/>
+				<param name="RT:statistics:variance1" value="225.382"/>
+				<param name="RT:statistics:variance2" value="170.983"/>
+			</model>
+			<convexhull nr="0">
+				<pt x="915.82" y="470.905" />
+				<pt x="936.971" y="468.918" />
+				<pt x="939.992" y="468.918" />
+				<pt x="946.037" y="468.92" />
+				<pt x="955.099" y="468.925" />
+				<pt x="958.122" y="468.93" />
+				<pt x="970.208" y="470.905" />
+				<pt x="967.185" y="472.917" />
+				<pt x="952.078" y="474.874" />
+				<pt x="943.013" y="474.892" />
+				<pt x="939.992" y="474.892" />
+				<pt x="915.82" y="472.895" />
+			</convexhull>
+		</feature>
+	</featureList>
+</featureMap>

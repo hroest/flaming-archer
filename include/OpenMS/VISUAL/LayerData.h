@@ -141,6 +141,11 @@ public:
     /// Returns a const reference to the current spectrum (1d view)
     const ExperimentType::SpectrumType & getCurrentSpectrum() const;
 
+    const ExperimentType::ChromatogramType & getCurrentChromatogram() const
+    {
+      return chromatograms->getChromatograms()[current_spectrum_];
+    }
+
     /// Returns a const reference to the current feature data
     const FeatureMapSharedPtrType & getFeatureMap() const
     {

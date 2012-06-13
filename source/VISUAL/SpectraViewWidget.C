@@ -272,6 +272,7 @@ namespace OpenMS
 
   void SpectraViewWidget::updateEntries(const LayerData & cl)
   {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     if (!spectra_treewidget_->isVisible())
     {
       return;

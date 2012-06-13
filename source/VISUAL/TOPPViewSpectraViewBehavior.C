@@ -47,7 +47,7 @@ namespace OpenMS
 
   void TOPPViewSpectraViewBehavior::showSpectrumAs1D(int index)
   {
-
+    std::cout << __PRETTY_FUNCTION__ << " with idx " << index << std::endl;
     // basic behavior 1
     const LayerData & layer = tv_->getActiveCanvas()->getCurrentLayer();
     ExperimentSharedPtrType exp_sptr = layer.getPeakData();
@@ -55,7 +55,7 @@ namespace OpenMS
     // open new 1D widget
     Spectrum1DWidget * w = new Spectrum1DWidget(tv_->getSpectrumParameters(1), (QWidget *)tv_->getWorkspace());
 
-    if (layer.type == LayerData::DT_CHROMATOGRAM)
+    if (layer.type == LayerData::DT_CHROMATOGRAM && false )
     {
       // create managed pointer to experiment data
       ExperimentType * chrom_exp = new ExperimentType();
@@ -84,21 +84,38 @@ namespace OpenMS
       w->canvas()->setDrawMode(Spectrum1DCanvas::DM_CONNECTEDLINES);
 
     }
-    else if (layer.type == LayerData::DT_PEAK)
+    else if (layer.type == LayerData::DT_PEAK || true )
     {
       caption = layer.name;
 
       //add data
+      std::cout << "about to add layre " << std::endl;
+#if 1
+      if (!w->canvas()->addLayer(exp_sptr, layer.filename) ) //|| (Size)index >= w->canvas()->getCurrentLayer().getPeakData()->size())
+#else
       if (!w->canvas()->addLayer(exp_sptr, layer.filename) || (Size)index >= w->canvas()->getCurrentLayer().getPeakData()->size())
+#endif
       {
         return;
       }
+      std::cout << "added layre " << std::endl;
     }
 
+#if 1
+    if (layer.type == LayerData::DT_CHROMATOGRAM)
+    {
+      w->canvas()->getCurrentLayer().getChromatogramData() = exp_sptr; // save the original chromatogram data so that we can access it later
+    }
+#endif
+
+    std::cout << "activate now " << std::endl;
+
     w->canvas()->activateSpectrum(index);
+    std::cout << "activated it " << std::endl;
 
     // set relative (%) view of visible area
     w->canvas()->setIntensityMode(SpectrumCanvas::IM_SNAP);
+    std::cout << "set mode now " << std::endl;
 
     if (layer.type == LayerData::DT_PEAK)
     {
@@ -130,11 +147,13 @@ namespace OpenMS
     String caption = layer.name;
     w->canvas()->setLayerName(w->canvas()->activeLayerIndex(), caption);
 
+    std::cout << "now starting the updates " << std::endl;
     tv_->showSpectrumWidgetInWindow(w, caption);
     tv_->updateLayerBar();
     tv_->updateViewBar();
     tv_->updateFilterBar();
     tv_->updateMenu();
+    std::cout << "done with all the updates " << std::endl;
   }
 
   void TOPPViewSpectraViewBehavior::showSpectrumAs1D(std::vector<int, std::allocator<int> > indices)

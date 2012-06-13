@@ -323,6 +323,7 @@ namespace OpenMS
 
   void Spectrum1DCanvas::mouseMoveEvent(QMouseEvent * e)
   {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     if (current_layer_ >= getLayerCount())
     {
       return;
@@ -331,7 +332,19 @@ namespace OpenMS
     // mouse position relative to the diagram widget
     QPoint p = e->pos();
     PointType data_pos = widgetToData(p);
-    emit sendCursorStatus(data_pos.getX(), getCurrentLayer_().getCurrentSpectrum().getRT());
+#if 0
+    if (getCurrentLayer_().type == LayerData::DT_PEAK)  
+    {
+      emit sendCursorStatus(data_pos.getX(), getCurrentLayer_().getCurrentSpectrum().getRT());
+    }
+    else if (getCurrentLayer_().type == LayerData::DT_CHROMATOGRAM)  
+    {
+      //emit sendCursorStatus(data_pos.getX(), getCurrentLayer_().getCurrentChromatogram().getRT());
+      emit sendCursorStatus(data_pos.getX(), data_pos.getY()) ;
+    }
+#else
+    return;
+#endif
 
     PeakIndex near_peak = findPeakAtPosition_(p);
 
@@ -670,6 +683,7 @@ namespace OpenMS
 
   void Spectrum1DCanvas::paint(QPainter * painter, QPaintEvent * e)
   {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     //Fill background if no layer is present
     if (getLayerCount() == 0)
     {
@@ -688,29 +702,66 @@ namespace OpenMS
 
     painter->fillRect(0, 0, this->width(), this->height(), QColor(param_.getValue("background_color").toQString()));
 
+        std::cout << "here calculate " << std::endl;
     emit recalculateAxes();
     paintGridLines_(*painter);
 
+        std::cout << "here start with alayre " << std::endl;
     SpectrumConstIteratorType vbegin, vend;
     for (Size i = 0; i < getLayerCount(); ++i)
     {
+        std::cout << "doing layer "<< i << std::endl;
       const LayerData & layer = getLayer(i);
+        std::cout << "doing layer "<< i << " of type " << layer.type << std::endl;
 
-      if (layer.type != LayerData::DT_PEAK)  // skip non peak data layer
+      if (layer.type != LayerData::DT_PEAK && layer.type != LayerData::DT_CHROMATOGRAM)  // skip non peak data layer
       {
+        //if (layer.type LayerData::DT_CONSENSUS || layer.type != LayerData::DT_CHROMATOGRAM)  // skip non peak data layer
+        std::cout << "skipping this layer " << layer.type << std::endl;
         continue;
       }
+        std::cout << "doing layer "<< i << " of type " << layer.type << std::endl;
 
-      const ExperimentType::SpectrumType & spectrum = layer.getCurrentSpectrum();
+      //const ExperimentType::SpectrumType & spectrum;
+      ExperimentType::SpectrumType spectrum;
+      if (layer.type == LayerData::DT_CHROMATOGRAM)  
+      {
+        std::cout << "trying to do chromatograms " << layer.getCurrentSpectrumIndex()<< std::endl;
+        const ExperimentType::ChromatogramType current_chrom = layer.getCurrentChromatogram();
+        std::cout << "got current chromat " << current_chrom.size() << std::endl;
+        //spectrum = SpectrumType();
+        //SpectrumType spectrum;
+        //const MSChromatogram<ChromatogramPeak> & current_chrom = exp.getChromatograms()[index];
+        for (Size i = 0; i != current_chrom.size(); ++i)
+        {
+          const ChromatogramPeak & cpeak = current_chrom[i];
+          Peak1D peak1d;
+          peak1d.setMZ(cpeak.getRT());
+          peak1d.setIntensity(cpeak.getIntensity());
+          spectrum.push_back(peak1d);
+        }
+        std::cout << "done with current chromat " << layer.type << std::endl;
+        std::cout << "try to paint in visible " << std::endl;
+      }
+      else if (layer.type == LayerData::DT_PEAK)  
+      {
+        spectrum = layer.getCurrentSpectrum();
+      }
+
+      std::cout << "try to paint in visible " << std::endl;
+
       if (layer.visible)
       {
+        std::cout << " paint in visible " << std::endl;
         QPen icon_pen = QPen(QColor(layer.param.getValue("icon_color").toQString()), 1);
         QPen pen(QColor(layer.param.getValue("peak_color").toQString()), 1);
         pen.setStyle(peak_penstyle_[i]);
         painter->setPen(pen);
+        std::cout << " paint in visible " << std::endl;
         updatePercentageFactor_(i);
-        vbegin = getLayer_(i).getCurrentSpectrum().MZBegin(visible_area_.minX());
-        vend = getLayer_(i).getCurrentSpectrum().MZEnd(visible_area_.maxX());
+        vbegin = spectrum.MZBegin(visible_area_.minX());
+        vend = spectrum.MZEnd(visible_area_.maxX());
+        std::cout << " paint in visible " << std::endl;
         // draw dashed elongations for pairs of peaks annotated with a distance
         for (Annotations1DContainer::ConstIterator it = layer.getCurrentAnnotations().begin();
              it != layer.getCurrentAnnotations().end(); ++it)
@@ -736,6 +787,7 @@ namespace OpenMS
         case DM_PEAKS:
           //-----------------------------------------DRAWING PEAKS-------------------------------------------
 
+          std::cout << " will try to draw peaks " << std::endl;
           for (SpectrumConstIteratorType it = vbegin; it != vend; ++it)
           {
             if (layer.filters.passes(spectrum, it - spectrum.begin()))
@@ -753,6 +805,7 @@ namespace OpenMS
         {
           //-------------------------------------DRAWING CONNECTED LINES-----------------------------------------
           QPainterPath path;
+          std::cout << " will try to draw connecrted lines " << std::endl;
 
           // connect peaks in visible area; (no clipping needed)
           bool first_point = true;
@@ -978,9 +1031,14 @@ namespace OpenMS
 
   bool Spectrum1DCanvas::finishAdding_()
   {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+#if 1
+    if (layers_.back().type != LayerData::DT_PEAK && layers_.back().type != LayerData::DT_CHROMATOGRAM)
+#else
     if (layers_.back().type != LayerData::DT_PEAK)
+#endif
     {
-      QMessageBox::critical(this, "Error", "This widget supports peak data only. Aborting!");
+      QMessageBox::critical(this, "Error", "This widget supports peak / chromatogram data only. Aborting!");
       return false;
     }
 
@@ -988,7 +1046,12 @@ namespace OpenMS
     currentPeakData_()->updateRanges();
 
     //Abort if no data points are contained
+#if 1
+    if ((getCurrentLayer().getPeakData()->size() == 0 || getCurrentLayer().getPeakData()->getSize() == 0) && 
+        (getCurrentLayer().getPeakData()->getChromatograms().size() == 0 ))
+#else
     if (getCurrentLayer().getPeakData()->size() == 0 || getCurrentLayer().getPeakData()->getSize() == 0)
+#endif
     {
       layers_.resize(getLayerCount() - 1);
       if (current_layer_ != 0)
@@ -1000,14 +1063,22 @@ namespace OpenMS
     //add new draw mode and style
     draw_modes_.push_back(DM_PEAKS);
     peak_penstyle_.push_back(Qt::SolidLine);
+    std::cout << "finishadding 2" << std::endl;
 
     //estimate peak type
     PeakTypeEstimator pte;
+#if 1
+    if (
+        getCurrentLayer().getPeakData()->size() > 0 && 
+        pte.estimateType(getCurrentLayer_().getCurrentSpectrum().begin(), getCurrentLayer_().getCurrentSpectrum().end()) == SpectrumSettings::RAWDATA)
+#else
     if (pte.estimateType(getCurrentLayer_().getCurrentSpectrum().begin(), getCurrentLayer_().getCurrentSpectrum().end()) == SpectrumSettings::RAWDATA)
+#endif
     {
       draw_modes_.back() = DM_CONNECTEDLINES;
       peak_penstyle_.push_back(Qt::SolidLine);
     }
+    std::cout << "finishadding 3" << std::endl;
 
     //Change peak color if this is not the first layer
     switch (current_layer_ % 5)
@@ -1036,6 +1107,7 @@ namespace OpenMS
       break;
     }
 
+    std::cout << "finishadding 4" << std::endl;
     // sort spectra in accending order of position
     for (Size i = 0; i < currentPeakData_()->size(); ++i)
     {
@@ -1046,6 +1118,7 @@ namespace OpenMS
 
     //update nearest peak
     selected_peak_.clear();
+    std::cout << "finishadding 5" << std::endl;
 
     //update ranges
     recalculateRanges_(0, 2, 1);
@@ -1056,27 +1129,39 @@ namespace OpenMS
     overall_data_range_.setMaxY(overall_data_range_.maxY() + 0.002 * overall_data_range_.height());
     resetZoom(false);     //no repaint as this is done in intensityModeChange_() anyway
 
+    std::cout << "finishadding 6" << std::endl;
+
     //Warn if negative intensities are contained
     if (getMinIntensity(current_layer_) < 0.0)
     {
       QMessageBox::warning(this, "Warning", "This dataset contains negative intensities. Use it at your own risk!");
     }
 
+    std::cout << "finishadding 7" << std::endl;
     if (getLayerCount() == 2)
     {
       setIntensityMode(IM_PERCENTAGE);
     }
     intensityModeChange_();
 
+    std::cout << "finishadding 8" << std::endl;
     emit layerActivated(this);
+    std::cout << "finishadding 9" << std::endl;
 
     return true;
   }
 
   void Spectrum1DCanvas::drawCoordinates_(QPainter & painter, const PeakIndex & peak)
   {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+
     if (!peak.isValid())
-      return;
+      {
+        std::cout << " invalid peak data" << std::endl;
+        return;
+      }
+
+    std::cout << " have valid peak data" << std::endl;
 
     //determine coordinates;
     DoubleReal mz = 0.0;
@@ -1112,6 +1197,7 @@ namespace OpenMS
 
   void Spectrum1DCanvas::drawDeltas_(QPainter & painter, const PeakIndex & start, const PeakIndex & end)
   {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     if (!start.isValid())
       return;
 
@@ -1169,19 +1255,46 @@ namespace OpenMS
 
   void Spectrum1DCanvas::recalculateSnapFactor_()
   {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+#if 0
+    snap_factors_[0] = 100.0;
+    return;
+#else
+#endif
     if (intensity_mode_ == IM_SNAP)
     {
       DoubleReal local_max  = -numeric_limits<double>::max();
       for (Size i = 0; i < getLayerCount(); ++i)
       {
-        SpectrumType & spectrum = getLayer_(i).getCurrentSpectrum();
-        SpectrumConstIteratorType tmp  = max_element(spectrum.MZBegin(visible_area_.minX()), spectrum.MZEnd(visible_area_.maxX()), PeakType::IntensityLess());
-        if (tmp != spectrum.end() && tmp->getIntensity() > local_max)
+        std::cout << " trying to get spectrum" << std::endl;
+
+        // peak data = spectrum
+        if (getLayer_(i).type == LayerData::DT_PEAK)
         {
-          local_max = tmp->getIntensity();
+          SpectrumType & spectrum = getLayer_(i).getCurrentSpectrum();
+          std::cout << " trying to get spectrum " << &spectrum << std::endl; // TODO for chromatograms this is a null ptr
+          SpectrumConstIteratorType tmp  = max_element(spectrum.MZBegin(visible_area_.minX()), spectrum.MZEnd(visible_area_.maxX()), PeakType::IntensityLess());
+          if (tmp != spectrum.end() && tmp->getIntensity() > local_max)
+          {
+            local_max = tmp->getIntensity();
+          }
+        }
+        // chromatogram data = chromatogram
+        else if (getLayer_(i).type == LayerData::DT_CHROMATOGRAM)
+        {
+          const ExperimentType::ChromatogramType& current_chrom = getLayer_(i).getCurrentChromatogram();
+          //OpenMS::MSChromatogram<> & spectrum = getLayer_(i).getCurrentChromatogram();
+          std::cout << " trying to get chromatogram " << &current_chrom << std::endl; // TODO for chromatograms this is a null ptr
+          ExperimentType::ChromatogramType::ConstIterator tmp  = max_element(current_chrom.RTBegin(visible_area_.minX()), current_chrom.RTEnd(visible_area_.maxX()), ChromatogramPeak::IntensityLess());
+          if (tmp != current_chrom.end() && tmp->getIntensity() > local_max)
+          {
+            local_max = tmp->getIntensity();
+          }
+ 
         }
       }
       snap_factors_[0] = overall_data_range_.maxPosition()[1] / local_max;
+      std::cout << " snap factor is " << snap_factors_[0] << std::endl;
     }
     else
     {
@@ -1801,8 +1914,11 @@ namespace OpenMS
 
   void Spectrum1DCanvas::intensityModeChange_()
   {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     recalculateSnapFactor_();
+    std::cout << " annotate " << std::endl;
     ensureAnnotationsWithinDataRange_();
+    std::cout << " do update " << std::endl;
     update_(__PRETTY_FUNCTION__);
   }
 
@@ -1839,10 +1955,18 @@ namespace OpenMS
     }
   }
 
+    /*
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    std::cout << index << "  vs " << currentPeakData_()->size() << std::endl;
+    std::cout << " ptrs " << getCurrentLayer_().getPeakData() << " / "<< getCurrentLayer_().getChromatogramData() << std::endl;
+    //if (currentPeakData_()->size() > 0 && index < currentPeakData_()->size() )
+    //
+    */
   void Spectrum1DCanvas::activateSpectrum(Size index, bool repaint)
   {
     if (index < currentPeakData_()->size())
     {
+      //std::cout << " in peak data" << std::endl;
       getCurrentLayer_().setCurrentSpectrumIndex(index);
       recalculateSnapFactor_();
       if (repaint)
@@ -1850,6 +1974,25 @@ namespace OpenMS
         update_(__PRETTY_FUNCTION__);
       }
     }
+
+
+#if 1
+
+    else if (index < getCurrentLayer_().getChromatogramData()->getChromatograms().size())
+    {
+      std::cout << " in chromat data" << std::endl;
+      /*
+      getCurrentLayer_().setCurrentSpectrumIndex(index);
+      recalculateSnapFactor_();
+      if (repaint)
+      {
+        update_(__PRETTY_FUNCTION__);
+      }
+      */
+      std::cout << " done with chromat data chromat data" << std::endl;
+    }
+#endif
+      
   }
 
   void Spectrum1DCanvas::setSwappedAxis(bool swapped)

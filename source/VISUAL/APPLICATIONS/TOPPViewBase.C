@@ -3127,7 +3127,6 @@ TOPPViewBase::TOPPViewBase(QWidget* parent):
       // which assumes that all chromatogram data has chromatograms).
       //
       // if we have chromatograms, we store the peak data. It looks to all tools just like a spectrum 
-
       getActiveCanvas()->getCurrentLayer().remove_chromatogram_flag(); // removing the flag is not constant
       //getActiveCanvas()->getCurrentLayer().getPeakData()->setMetaValue("chromatogram_passed_through_TOPP", "true"); 
 

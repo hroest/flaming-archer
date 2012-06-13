@@ -3125,6 +3125,9 @@ TOPPViewBase::TOPPViewBase(QWidget* parent):
       // remove the flag and add the newly generated layer as spectrum data
       // (otherwise we run into problems with SpectraViewWidget::updateEntries
       // which assumes that all chromatogram data has chromatograms).
+      //
+      // if we have chromatograms, we store the peak data. It looks to all tools just like a spectrum 
+
       getActiveCanvas()->getCurrentLayer().remove_chromatogram_flag(); // removing the flag is not constant
       //getActiveCanvas()->getCurrentLayer().getPeakData()->setMetaValue("chromatogram_passed_through_TOPP", "true"); 
 

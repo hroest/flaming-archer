@@ -135,7 +135,7 @@ namespace OpenMS
     else if (tag_ == "TransitionList")
     {
       UInt count = attributeAsInt_(attributes, s_count);
-      exp_->reserve(count);
+      // exp_->reserve(count); // reserve space for transition
       logger_.startProgress(0,count,"loading TraML file");
     }
     else if (tag_ == "Contact")

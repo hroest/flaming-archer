@@ -60,7 +60,7 @@ namespace OpenMS
 
   void TraMLHandler::startElement(const XMLCh* const /*uri*/, const XMLCh* const /*local_name*/, const XMLCh* const qname, const xercesc::Attributes& attributes)
   {
-
+    static const XMLCh* s_count = xercesc::XMLString::transcode("count");
     static const XMLCh* s_type = xercesc::XMLString::transcode("type");
     static const XMLCh* s_value = xercesc::XMLString::transcode("value");
     static const XMLCh* s_name = xercesc::XMLString::transcode("name");
@@ -74,7 +74,6 @@ namespace OpenMS
       tags_to_ignore.insert("TraML"); // base node
       tags_to_ignore.insert("ContactList"); // contains only contact sections
       tags_to_ignore.insert("CompoundList"); // contains only compounds
-      tags_to_ignore.insert("TransitionList"); // contains only transitions
       tags_to_ignore.insert("ConfigurationList"); // contains only configurations
       tags_to_ignore.insert("cvList"); // contains only CVs
       tags_to_ignore.insert("InstrumentList"); // contains only instruments
@@ -132,6 +131,12 @@ namespace OpenMS
     else if (tag_ == "cv")
     {
       exp_->addCV(TargetedExperiment::CV(attributeAsString_(attributes, "id"), attributeAsString_(attributes, "fullName"), attributeAsString_(attributes, "version"), attributeAsString_(attributes, "URI")));
+    }
+    else if (tag_ == "TransitionList")
+    {
+      UInt count = attributeAsInt_(attributes, s_count);
+      exp_->reserve(count);
+      logger_.startProgress(0,count,"loading TraML file");
     }
     else if (tag_ == "Contact")
     {
@@ -281,6 +286,7 @@ namespace OpenMS
 
   void TraMLHandler::endElement(const XMLCh* const /*uri*/, const XMLCh* const /*local_name*/, const XMLCh* const qname)
   {
+    static UInt transition_count=0;
     tag_ = sm_.convert(qname);
 
     //determine parent tag
@@ -297,7 +303,6 @@ namespace OpenMS
       tags_to_ignore.insert("TraML"); // base node
       tags_to_ignore.insert("ContactList"); // contains only contact sections
       tags_to_ignore.insert("CompoundList"); // contains only compounds
-      tags_to_ignore.insert("TransitionList"); // contains only transitions
       tags_to_ignore.insert("ConfigurationList"); // contains only configurations
       tags_to_ignore.insert("cvList"); // contains only CVs
       tags_to_ignore.insert("InstrumentList"); // contains only instruments
@@ -330,6 +335,10 @@ namespace OpenMS
     {
       exp_->addContact(actual_contact_);
       actual_contact_ = TargetedExperiment::Contact();
+    }
+    else if (tag_ == "TransitionList")
+    {
+      logger_.endProgress();
     }
     else if (tag_ == "Instrument")
     {
@@ -389,6 +398,7 @@ namespace OpenMS
     }
     else if (tag_ == "Transition")
     {
+      logger_.setProgress(++transition_count);
       exp_->addTransition(actual_transition_);
       actual_transition_ = ReactionMonitoringTransition();
     }
@@ -684,7 +694,7 @@ namespace OpenMS
     //--------------------------------------------------------------------------------------------
     if (exp.getTransitions().size() > 0)
     {
-      os << "  <TransitionList>" << "\n";
+      os << "  <TransitionList count=" << exp.getTransitions().size() << ">" << "\n";
       for (std::vector<ReactionMonitoringTransition>::const_iterator it = exp.getTransitions().begin(); it != exp.getTransitions().end(); ++it)
       {
         logger_.setProgress(progress++);

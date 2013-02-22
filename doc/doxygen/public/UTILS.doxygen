@@ -1,0 +1,86 @@
+// --------------------------------------------------------------------------
+//                   OpenMS -- Open-Source Mass Spectrometry               
+// --------------------------------------------------------------------------
+// Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
+// ETH Zurich, and Freie Universitaet Berlin 2002-2012.
+// 
+// This software is released under a three-clause BSD license:
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+//  * Neither the name of any author or any participating institution 
+//    may be used to endorse or promote products derived from this software 
+//    without specific prior written permission.
+// For a full list of authors, refer to the file AUTHORS. 
+// --------------------------------------------------------------------------
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL ANY OF THE AUTHORS OR THE CONTRIBUTING 
+// INSTITUTIONS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; 
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
+// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// --------------------------------------------------------------------------
+// $Maintainer:  $
+// $Authors: Marc Sturm, Chris Bielow $
+// --------------------------------------------------------------------------
+
+/**
+  @page UTILS_documentation UTILS documentation
+
+  Besides TOPP, %OpenMS offers a range of other tools.
+  They are not included in TOPP as they are not part of typical analysis pipelines,
+  but they still might be very helpful to you.
+
+	Just as the TOPP tools, they can be found to the %OpenMS/bin folder.
+
+ 	The UTILS tools are divided into several subgroups:
+
+	<b>Maintenance</b>
+	- @subpage UTILS_INIUpdater - Update INI and TOPPAS files from previous versions of %OpenMS as parameters and storage method might have changed
+	
+  <b>File handling</b>
+  - @subpage UTILS_FuzzyDiff - Compares two files, tolerating numeric differences.
+  - @subpage UTILS_XMLValidator - Validates XML files against an XSD schema.
+	- @subpage UTILS_SemanticValidator - SemanticValidator for analysisXML and mzML files.
+  - @subpage UTILS_CVInspector - A tool for visualization and validation of PSI mapping and CV files.
+	- @subpage UTILS_IDSplitter - Splits protein/peptide identifications off of annotated data files.
+
+  <b>Algorithm evaluation</b>
+  - @subpage UTILS_FFEval - Evaluation tool for feature detection algorithms.
+	- @subpage UTILS_IDEvaluator - Evaluation tool, comparing peptide recovery at different q-value thresholds for multiple search engines (e.g., after ConsensusID). For interactive version use the @subpage UTILS_IDEvaluatorGUI tool.
+  - @subpage UTILS_LabeledEval - Evaluation tool for isotope-labeled quantitation experiments.
+	- @subpage UTILS_MapAlignmentEvaluation - Evaluates alignment results against a ground truth.
+	- @subpage UTILS_RTEvaluation - Application that evaluates TPs (true positives), TNs, FPs, and FNs for an idXML file with predicted RTs.
+	- @subpage UTILS_TransformationEvaluation - Simple evaluation of transformations (e.g. RT transformations produced by a MapAligner tool).
+
+  <b>Peptide identification</b>
+	- @subpage UTILS_Digestor - Digests a protein database in-silico.
+	- @subpage UTILS_DigestorMotif - Digests a protein database in-silico (optionally allowing only peptides with a specific motif) and produces statistical data for all peptides.
+	- @subpage UTILS_DecoyDatabase - Create decoy peptide databases from normal ones.
+	- @subpage UTILS_SequenceCoverageCalculator - Prints information about idXML files.
+  - @subpage UTILS_IDExtractor - Extracts n peptides randomly or best n from idXML files.
+  - @subpage UTILS_IDMassAccuracy - Calculates a distribution of the mass error from given mass spectra and IDs.
+  - @subpage UTILS_SpecLibCreator - Creates an MSP formated spectral library.
+
+  <b>Quantitation</b>
+  - @subpage UTILS_ERPairFinder - Evaluate pair ratios on enhanced resolution (zoom) scans.
+  - @subpage UTILS_MRMPairFinder - Evaluate labeled pair ratios on MRM features.
+  - @subpage UTILS_FeatureFinderSuperHirn - Find Features using the SuperHirn Algorithm (it can handle centroided or profile data, see .ini file)
+
+	<b>Misc</b>
+  - @subpage UTILS_ImageCreator - Creates images from MS1 data (with MS2 data points indicated as dots).
+	- @subpage UTILS_MassCalculator - Calculates masses and mass-to-charge ratios of peptide sequences.
+	- @subpage UTILS_MSSimulator - A highly configurable simulator for mass spectrometry experiments.
+	- @subpage UTILS_SvmTheoreticalSpectrumGeneratorTrainer - A trainer for svm models as input for SvmTheoreticalSpectrumGenerator.
+  - @subpage UTILS_DeMeanderize - Orders the spectra of MALDI spotting plates correctly.
+  - @subpage UTILS_OpenSwathMzMLFileCacher - Caching of large mzML files 
+
+*/

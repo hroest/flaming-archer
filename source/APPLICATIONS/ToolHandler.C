@@ -183,46 +183,47 @@ namespace OpenMS
   ToolListType ToolHandler::getUtilList()
   {
     ToolListType util_map;
+    const String util_category = "Utilities";
 
-    util_map["CVInspector"] = Internal::ToolDescription("CVInspector", "");
-    util_map["DecoyDatabase"] = Internal::ToolDescription("DecoyDatabase", "");
-    util_map["DeMeanderize"] = Internal::ToolDescription("DeMeanderize", "");
-    util_map["Digestor"] = Internal::ToolDescription("Digestor", "");
-    util_map["DigestorMotif"] = Internal::ToolDescription("DigestorMotif", "");
-    util_map["ERPairFinder"] = Internal::ToolDescription("ERPairFinder", "");
-    util_map["FFEval"] = Internal::ToolDescription("FFEval", "");
-    util_map["FuzzyDiff"] = Internal::ToolDescription("FuzzyDiff", "");
-    util_map["IDDecoyProbability"] = Internal::ToolDescription("IDDecoyProbability", "");
-    util_map["IDEvaluator"] = Internal::ToolDescription("IDEvaluator", "");
-    util_map["IDExtractor"] = Internal::ToolDescription("IDExtractor", "");
-    util_map["IDMassAccuracy"] = Internal::ToolDescription("IDMassAccuracy", "");
-    util_map["IDSplitter"] = Internal::ToolDescription("IDSplitter", "");
-    util_map["ImageCreator"] = Internal::ToolDescription("ImageCreator", "");
-    util_map["INIUpdater"] = Internal::ToolDescription("INIUpdater", "");
-    util_map["LabeledEval"] = Internal::ToolDescription("LabeledEval", "");
-    util_map["MapAlignmentEvaluation"] = Internal::ToolDescription("MapAlignmentEvaluation", "");
-    util_map["MassCalculator"] = Internal::ToolDescription("MassCalculator", "");
-    util_map["MRMPairFinder"] = Internal::ToolDescription("MRMPairFinder", "");
-    util_map["MSSimulator"] = Internal::ToolDescription("MSSimulator", "");
-    util_map["QCCalculator"] = Internal::ToolDescription("QCCalculator", "");
-    util_map["QCEmbedder"] = Internal::ToolDescription("QCEmbedder", "");    
-    util_map["QCExporter"] = Internal::ToolDescription("QCExporter", "");
-    util_map["QCMerger"] = Internal::ToolDescription("QCMerger", "");
-    util_map["QCShrinker"] = Internal::ToolDescription("QCExporter", "");
-    util_map["RNPxl"] = Internal::ToolDescription("RNPxl", "");
-    util_map["RNPxlXICFilter"] = Internal::ToolDescription("RNPxlXICFilter", "");
-    util_map["RTEvaluation"] = Internal::ToolDescription("RTEvaluation", "");
-    util_map["SemanticValidator"] = Internal::ToolDescription("SemanticValidator", "");
-    util_map["SequenceCoverageCalculator"] = Internal::ToolDescription("SequenceCoverageCalculator", "");
-    util_map["SpecLibCreator"] = Internal::ToolDescription("SpecLibCreator", "");
-    util_map["SvmTheoreticalSpectrumGeneratorTrainer"] = Internal::ToolDescription("SvmTheoreticalSpectrumGeneratorTrainer", "");
-    util_map["TransformationEvaluation"] = Internal::ToolDescription("TransformationEvaluation", "");
-    util_map["XMLValidator"] = Internal::ToolDescription("XMLValidator", "");
+    util_map["CVInspector"] = Internal::ToolDescription("CVInspector", util_category);
+    util_map["DecoyDatabase"] = Internal::ToolDescription("DecoyDatabase", util_category);
+    util_map["DeMeanderize"] = Internal::ToolDescription("DeMeanderize", util_category);
+    util_map["Digestor"] = Internal::ToolDescription("Digestor", util_category);
+    util_map["DigestorMotif"] = Internal::ToolDescription("DigestorMotif", util_category);
+    util_map["ERPairFinder"] = Internal::ToolDescription("ERPairFinder", util_category);
+    util_map["FFEval"] = Internal::ToolDescription("FFEval", util_category);
+    util_map["FuzzyDiff"] = Internal::ToolDescription("FuzzyDiff", util_category);
+    util_map["IDDecoyProbability"] = Internal::ToolDescription("IDDecoyProbability", util_category);
+    util_map["IDEvaluator"] = Internal::ToolDescription("IDEvaluator", util_category);
+    util_map["IDExtractor"] = Internal::ToolDescription("IDExtractor", util_category);
+    util_map["IDMassAccuracy"] = Internal::ToolDescription("IDMassAccuracy", util_category);
+    util_map["IDSplitter"] = Internal::ToolDescription("IDSplitter", util_category);
+    util_map["ImageCreator"] = Internal::ToolDescription("ImageCreator", util_category);
+    util_map["INIUpdater"] = Internal::ToolDescription("INIUpdater", util_category);
+    util_map["LabeledEval"] = Internal::ToolDescription("LabeledEval", util_category);
+    util_map["MapAlignmentEvaluation"] = Internal::ToolDescription("MapAlignmentEvaluation", util_category);
+    util_map["MassCalculator"] = Internal::ToolDescription("MassCalculator", util_category);
+    util_map["MRMPairFinder"] = Internal::ToolDescription("MRMPairFinder", util_category);
+    util_map["MSSimulator"] = Internal::ToolDescription("MSSimulator", util_category);
+    util_map["QCCalculator"] = Internal::ToolDescription("QCCalculator", util_category);
+    util_map["QCEmbedder"] = Internal::ToolDescription("QCEmbedder", util_category);
+    util_map["QCExporter"] = Internal::ToolDescription("QCExporter", util_category);
+    util_map["QCMerger"] = Internal::ToolDescription("QCMerger", util_category);
+    util_map["QCShrinker"] = Internal::ToolDescription("QCExporter", util_category);
+    util_map["RNPxl"] = Internal::ToolDescription("RNPxl", util_category);
+    util_map["RNPxlXICFilter"] = Internal::ToolDescription("RNPxlXICFilter", util_category);
+    util_map["RTEvaluation"] = Internal::ToolDescription("RTEvaluation", util_category);
+    util_map["SemanticValidator"] = Internal::ToolDescription("SemanticValidator", util_category);
+    util_map["SequenceCoverageCalculator"] = Internal::ToolDescription("SequenceCoverageCalculator", util_category);
+    util_map["SpecLibCreator"] = Internal::ToolDescription("SpecLibCreator", util_category);
+    util_map["SvmTheoreticalSpectrumGeneratorTrainer"] = Internal::ToolDescription("SvmTheoreticalSpectrumGeneratorTrainer", util_category);
+    util_map["TransformationEvaluation"] = Internal::ToolDescription("TransformationEvaluation", util_category);
+    util_map["XMLValidator"] = Internal::ToolDescription("XMLValidator", util_category);
     // STOP! insert our tool in alphabetical order for easier maintenance
     return util_map;
   }
 
-  StringList ToolHandler::getTypes(const String & toolname)
+  StringList ToolHandler::getTypes(const String& toolname)
   {
     // for internal tools, query TOPP and UTILS for a match
     Internal::ToolDescription ret;
@@ -290,9 +291,9 @@ namespace OpenMS
       for (Size i_t = 0; i_t < tools.size(); ++i_t)
       {
         if (i == 0 && i_t == 0)
-          tools_external_ = tools[i_t];                   // init
+          tools_external_ = tools[i_t]; // init
         else
-          tools_external_.append(tools[i_t]);    // append
+          tools_external_.append(tools[i_t]); // append
       }
     }
     tools_external_.name = "GenericWrapper";
@@ -380,7 +381,7 @@ namespace OpenMS
     return all_files;
   }
 
-  String ToolHandler::getCategory(const String & toolname)
+  String ToolHandler::getCategory(const String& toolname)
   {
     ToolListType tools = getTOPPToolList(true);
     ToolListType utils = getUtilList();

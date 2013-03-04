@@ -9,11 +9,14 @@ INIFileEditor - graphical parameter editor for INI files
 ------------------------------------------------------------------------------------------ 
 ----                                  OpenMS 1.10                                      ---- 
 ------------------------------------------------------------------------------------------ 
-Release date: January 2013
+Release date: March 2013
+
+OpenMS 1.10 is the first release integrated into KNIME (www.knime.org).
+To use OpenMS in KNIME please refer to the www.OpenMS.de for additional information.
 
 File formats:
 - TraML 1.0.0 support
-- Initial mzQuantML, mzIdentML and mzTab support
+- Initial mzQuantML, mzIdentML and mzTab support (not fully supported)
 
 TOPPView:
 - Concurrent zoom
@@ -49,7 +52,17 @@ Changes to the Build System / Package System:
 Development:
 - Style corrections of the OpenMS source base using uncrustify
 
+Deprecated:
+- Conversion of Sequest files in IDFileConverter 
+
 Resolved issues:
+	#513	Commented out the functionality of smartFileNames_() (not mature enough for the 1.10 release)
+	#508	allow free columns for TSV
+	#473	change in/out types again to csv
+	#507	TOPPDocumenter now expects the path to the executables and can generate doc for TOPPView/TOPPAS on mac osx
+	#506	added custom info.plist containing the path to OMSSA/XTandem for the GUI tools
+	#505	goto dialogs now act with error tolerance
+	#504	Fixed XTandemXMLFile loading when no encoding is given by XTandemXML file by enforcing ISO-Latin-1 (default would be utf-8, breaking the aminoacid sequence readin). Introduced enforceEncoding(encoding) to XMLFile.
 	#316	SpectraViewWidget is not cleaned up when last layer is deleted
 	#283	TOPPView: Scan view widget does not clear after closing last file
 	#379	MapAlignerPoseClustering: -reference:index has no effect

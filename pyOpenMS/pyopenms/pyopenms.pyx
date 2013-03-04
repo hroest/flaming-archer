@@ -64,6 +64,7 @@ from VersionInfo cimport create as _create_VersionInfo
 from TransformationModelLinear cimport getDefaultParameters as _getDefaultParameters_TransformationModelLinear
 from TransformationModelInterpolated cimport getDefaultParameters as _getDefaultParameters_TransformationModelInterpolated
 from TransformationModelBSpline cimport getDefaultParameters as _getDefaultParameters_TransformationModelBSpline
+from TransformationDescription cimport getModelTypes as _getModelTypes_TransformationDescription
 from FeatureFinderAlgorithmPicked cimport getProductName as _getProductName_FeatureFinderAlgorithmPicked
 from VersionInfo cimport getRevision as _getRevision_VersionInfo
 from VersionInfo cimport getTime as _getTime_VersionInfo
@@ -161,6 +162,11 @@ def __static_TransformationModelBSpline_getDefaultParameters(Param in_0 ):
     assert isinstance(in_0, Param), 'arg in_0 wrong type'
 
     _getDefaultParameters_TransformationModelBSpline(<_Param &>deref(in_0.inst.get()))
+def getModelTypes(list result ):
+    assert isinstance(result, list) and all(isinstance(li, bytes) for li in result), 'arg result wrong type'
+    cdef libcpp_vector[libcpp_string] _v0 = result
+    cdef _StringList v0 = _StringList(_v0)
+    _getModelTypes_TransformationDescription((v0))
 def __static_FeatureFinderAlgorithmPicked_getProductName():
     cdef _String _r = _getProductName_FeatureFinderAlgorithmPicked()
     py_result = _cast_const_away(<char*>_r.c_str())
@@ -245,62 +251,8 @@ cdef class MSExperiment:
     cdef shared_ptr[_MSExperiment[_Peak1D,_ChromatogramPeak]] inst
     def __dealloc__(self):
          self.inst.reset()
-    def isMetaEmpty(self):
-        cdef bool _r = self.inst.get().isMetaEmpty()
-        py_result = <bool>_r
-        return py_result
     def __init__(self):
         self.inst = shared_ptr[_MSExperiment[_Peak1D,_ChromatogramPeak]](new _MSExperiment[_Peak1D,_ChromatogramPeak]())
-    def _setMetaValue_0(self,  in_0 , DataValue in_1 ):
-        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
-        assert isinstance(in_1, DataValue), 'arg in_1 wrong type'
-    
-    
-        self.inst.get().setMetaValue((<int>in_0), <_DataValue>deref(in_1.inst.get()))
-    def _setMetaValue_1(self, bytes in_0 , DataValue in_1 ):
-        assert isinstance(in_0, bytes), 'arg in_0 wrong type'
-        assert isinstance(in_1, DataValue), 'arg in_1 wrong type'
-    
-    
-        self.inst.get().setMetaValue((_String(<char *>in_0)), <_DataValue>deref(in_1.inst.get()))
-    def setMetaValue(self, *args):
-        if (len(args)==2) and (isinstance(args[0], (int, long))) and (isinstance(args[1], DataValue)):
-            return self._setMetaValue_0(*args)
-        elif (len(args)==2) and (isinstance(args[0], bytes)) and (isinstance(args[1], DataValue)):
-            return self._setMetaValue_1(*args)
-        else:
-               raise Exception('can not handle type of %s' % (args,))
-    def sortSpectra(self,  in_0 ):
-        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
-    
-        self.inst.get().sortSpectra((<bool>in_0))
-    def getMaxRT(self):
-        cdef double _r = self.inst.get().getMaxRT()
-        py_result = <float>_r
-        return py_result
-    def getMinMZ(self):
-        cdef double _r = self.inst.get().getMinMZ()
-        py_result = <float>_r
-        return py_result
-    def _removeMetaValue_0(self, bytes in_0 ):
-        assert isinstance(in_0, bytes), 'arg in_0 wrong type'
-    
-        self.inst.get().removeMetaValue((_String(<char *>in_0)))
-    def _removeMetaValue_1(self,  in_0 ):
-        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
-    
-        self.inst.get().removeMetaValue((<int>in_0))
-    def removeMetaValue(self, *args):
-        if (len(args)==1) and (isinstance(args[0], bytes)):
-            return self._removeMetaValue_0(*args)
-        elif (len(args)==1) and (isinstance(args[0], (int, long))):
-            return self._removeMetaValue_1(*args)
-        else:
-               raise Exception('can not handle type of %s' % (args,))
-    def getLoadedFilePath(self):
-        cdef _String _r = self.inst.get().getLoadedFilePath()
-        py_result = _cast_const_away(<char*>_r.c_str())
-        return py_result
     def _metaValueExists_0(self, bytes in_0 ):
         assert isinstance(in_0, bytes), 'arg in_0 wrong type'
     
@@ -320,54 +272,6 @@ cdef class MSExperiment:
             return self._metaValueExists_1(*args)
         else:
                raise Exception('can not handle type of %s' % (args,))
-    def _getMetaValue_0(self,  in_0 ):
-        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
-    
-        cdef _DataValue * _r = new _DataValue(self.inst.get().getMetaValue((<int>in_0)))
-        cdef DataValue py_result = DataValue.__new__(DataValue)
-        py_result.inst = shared_ptr[_DataValue](_r)
-        return py_result
-    def _getMetaValue_1(self, bytes in_0 ):
-        assert isinstance(in_0, bytes), 'arg in_0 wrong type'
-    
-        cdef _DataValue * _r = new _DataValue(self.inst.get().getMetaValue((_String(<char *>in_0))))
-        cdef DataValue py_result = DataValue.__new__(DataValue)
-        py_result.inst = shared_ptr[_DataValue](_r)
-        return py_result
-    def getMetaValue(self, *args):
-        if (len(args)==1) and (isinstance(args[0], (int, long))):
-            return self._getMetaValue_0(*args)
-        elif (len(args)==1) and (isinstance(args[0], bytes)):
-            return self._getMetaValue_1(*args)
-        else:
-               raise Exception('can not handle type of %s' % (args,))
-    def setLoadedFilePath(self, bytes path ):
-        assert isinstance(path, bytes), 'arg path wrong type'
-    
-        self.inst.get().setLoadedFilePath((_String(<char *>path)))
-    def updateRanges(self):
-        self.inst.get().updateRanges()
-    def push_back(self, MSSpectrum spec ):
-        assert isinstance(spec, MSSpectrum), 'arg spec wrong type'
-    
-        self.inst.get().push_back(<_MSSpectrum[_Peak1D]>deref(spec.inst.get()))
-    def __getitem__(self,  in_0 ):
-        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
-    
-        cdef _MSSpectrum[_Peak1D] * _r = new _MSSpectrum[_Peak1D](deref(self.inst.get())[(<int>in_0)])
-        cdef MSSpectrum py_result = MSSpectrum.__new__(MSSpectrum)
-        py_result.inst = shared_ptr[_MSSpectrum[_Peak1D]](_r)
-        return py_result
-    def getMaxMZ(self):
-        cdef double _r = self.inst.get().getMaxMZ()
-        py_result = <float>_r
-        return py_result
-    def clearMetaInfo(self):
-        self.inst.get().clearMetaInfo()
-    def getMinRT(self):
-        cdef double _r = self.inst.get().getMinRT()
-        py_result = <float>_r
-        return py_result
     def _getKeys_0(self, list keys ):
         assert isinstance(keys, list) and all(isinstance(i, bytes) for i in keys), 'arg keys wrong type'
         cdef libcpp_vector[_String] * v0 = new libcpp_vector[_String]()
@@ -394,9 +298,143 @@ cdef class MSExperiment:
             return self._getKeys_1(*args)
         else:
                raise Exception('can not handle type of %s' % (args,))
+    def getSize(self):
+        cdef unsigned int _r = self.inst.get().getSize()
+        py_result = <int>_r
+        return py_result
+    def _updateRanges_0(self):
+        self.inst.get().updateRanges()
+    def _updateRanges_1(self,  msLevel ):
+        assert isinstance(msLevel, (int, long)), 'arg msLevel wrong type'
+    
+        self.inst.get().updateRanges((<int>msLevel))
+    def updateRanges(self, *args):
+        if not args:
+            return self._updateRanges_0(*args)
+        elif (len(args)==1) and (isinstance(args[0], (int, long))):
+            return self._updateRanges_1(*args)
+        else:
+               raise Exception('can not handle type of %s' % (args,))
+    def push_back(self, MSSpectrum spec ):
+        assert isinstance(spec, MSSpectrum), 'arg spec wrong type'
+    
+        self.inst.get().push_back(<_MSSpectrum[_Peak1D]>deref(spec.inst.get()))
     def size(self):
         cdef int _r = self.inst.get().size()
         py_result = <int>_r
+        return py_result
+    def getLoadedFilePath(self):
+        cdef _String _r = self.inst.get().getLoadedFilePath()
+        py_result = _cast_const_away(<char*>_r.c_str())
+        return py_result
+    def isMetaEmpty(self):
+        cdef bool _r = self.inst.get().isMetaEmpty()
+        py_result = <bool>_r
+        return py_result
+    def _isSorted_0(self,  check_mz ):
+        assert isinstance(check_mz, (int, long)), 'arg check_mz wrong type'
+    
+        cdef bool _r = self.inst.get().isSorted((<bool>check_mz))
+        py_result = <bool>_r
+        return py_result
+    def _isSorted_1(self):
+        cdef bool _r = self.inst.get().isSorted()
+        py_result = <bool>_r
+        return py_result
+    def isSorted(self, *args):
+        if (len(args)==1) and (isinstance(args[0], (int, long))):
+            return self._isSorted_0(*args)
+        elif not args:
+            return self._isSorted_1(*args)
+        else:
+               raise Exception('can not handle type of %s' % (args,))
+    def _setMetaValue_0(self,  in_0 , DataValue in_1 ):
+        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
+        assert isinstance(in_1, DataValue), 'arg in_1 wrong type'
+    
+    
+        self.inst.get().setMetaValue((<int>in_0), <_DataValue>deref(in_1.inst.get()))
+    def _setMetaValue_1(self, bytes in_0 , DataValue in_1 ):
+        assert isinstance(in_0, bytes), 'arg in_0 wrong type'
+        assert isinstance(in_1, DataValue), 'arg in_1 wrong type'
+    
+    
+        self.inst.get().setMetaValue((_String(<char *>in_0)), <_DataValue>deref(in_1.inst.get()))
+    def setMetaValue(self, *args):
+        if (len(args)==2) and (isinstance(args[0], (int, long))) and (isinstance(args[1], DataValue)):
+            return self._setMetaValue_0(*args)
+        elif (len(args)==2) and (isinstance(args[0], bytes)) and (isinstance(args[1], DataValue)):
+            return self._setMetaValue_1(*args)
+        else:
+               raise Exception('can not handle type of %s' % (args,))
+    def getMaxRT(self):
+        cdef double _r = self.inst.get().getMaxRT()
+        py_result = <float>_r
+        return py_result
+    def __getitem__(self,  in_0 ):
+        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
+    
+        cdef _MSSpectrum[_Peak1D] * _r = new _MSSpectrum[_Peak1D](deref(self.inst.get())[(<int>in_0)])
+        cdef MSSpectrum py_result = MSSpectrum.__new__(MSSpectrum)
+        py_result.inst = shared_ptr[_MSSpectrum[_Peak1D]](_r)
+        return py_result
+    def getMaxMZ(self):
+        cdef double _r = self.inst.get().getMaxMZ()
+        py_result = <float>_r
+        return py_result
+    def setLoadedFilePath(self, bytes path ):
+        assert isinstance(path, bytes), 'arg path wrong type'
+    
+        self.inst.get().setLoadedFilePath((_String(<char *>path)))
+    def sortSpectra(self,  in_0 ):
+        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
+    
+        self.inst.get().sortSpectra((<bool>in_0))
+    def getMinMZ(self):
+        cdef double _r = self.inst.get().getMinMZ()
+        py_result = <float>_r
+        return py_result
+    def _removeMetaValue_0(self, bytes in_0 ):
+        assert isinstance(in_0, bytes), 'arg in_0 wrong type'
+    
+        self.inst.get().removeMetaValue((_String(<char *>in_0)))
+    def _removeMetaValue_1(self,  in_0 ):
+        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
+    
+        self.inst.get().removeMetaValue((<int>in_0))
+    def removeMetaValue(self, *args):
+        if (len(args)==1) and (isinstance(args[0], bytes)):
+            return self._removeMetaValue_0(*args)
+        elif (len(args)==1) and (isinstance(args[0], (int, long))):
+            return self._removeMetaValue_1(*args)
+        else:
+               raise Exception('can not handle type of %s' % (args,))
+    def _getMetaValue_0(self,  in_0 ):
+        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
+    
+        cdef _DataValue * _r = new _DataValue(self.inst.get().getMetaValue((<int>in_0)))
+        cdef DataValue py_result = DataValue.__new__(DataValue)
+        py_result.inst = shared_ptr[_DataValue](_r)
+        return py_result
+    def _getMetaValue_1(self, bytes in_0 ):
+        assert isinstance(in_0, bytes), 'arg in_0 wrong type'
+    
+        cdef _DataValue * _r = new _DataValue(self.inst.get().getMetaValue((_String(<char *>in_0))))
+        cdef DataValue py_result = DataValue.__new__(DataValue)
+        py_result.inst = shared_ptr[_DataValue](_r)
+        return py_result
+    def getMetaValue(self, *args):
+        if (len(args)==1) and (isinstance(args[0], (int, long))):
+            return self._getMetaValue_0(*args)
+        elif (len(args)==1) and (isinstance(args[0], bytes)):
+            return self._getMetaValue_1(*args)
+        else:
+               raise Exception('can not handle type of %s' % (args,))
+    def clearMetaInfo(self):
+        self.inst.get().clearMetaInfo()
+    def getMinRT(self):
+        cdef double _r = self.inst.get().getMinRT()
+        py_result = <float>_r
         return py_result
     def __richcmp__(self, other, op):
         if op not in (2, 3):
@@ -2634,29 +2672,45 @@ cdef class TransformationDescription:
     cdef shared_ptr[_TransformationDescription] inst
     def __dealloc__(self):
          self.inst.reset()
+    def getDataPoints(self):
+        _r = self.inst.get().getDataPoints()
+        cdef list py_result = _r
+        return py_result
+    def __init__(self):
+        self.inst = shared_ptr[_TransformationDescription](new _TransformationDescription())
+    def getModelType(self):
+        cdef _String _r = self.inst.get().getModelType()
+        py_result = _cast_const_away(<char*>_r.c_str())
+        return py_result
+    def invert(self):
+        self.inst.get().invert()
+    def _fitModel_0(self, bytes model_type , Param params ):
+        assert isinstance(model_type, bytes), 'arg model_type wrong type'
+        assert isinstance(params, Param), 'arg params wrong type'
+    
+    
+        self.inst.get().fitModel((_String(<char *>model_type)), <_Param>deref(params.inst.get()))
+    def _fitModel_1(self, bytes model_type ):
+        assert isinstance(model_type, bytes), 'arg model_type wrong type'
+    
+        self.inst.get().fitModel((_String(<char *>model_type)))
+    def fitModel(self, *args):
+        if (len(args)==2) and (isinstance(args[0], bytes)) and (isinstance(args[1], Param)):
+            return self._fitModel_0(*args)
+        elif (len(args)==1) and (isinstance(args[0], bytes)):
+            return self._fitModel_1(*args)
+        else:
+               raise Exception('can not handle type of %s' % (args,))
+    def getModelParameters(self, Param params ):
+        assert isinstance(params, Param), 'arg params wrong type'
+    
+        self.inst.get().getModelParameters(<_Param &>deref(params.inst.get()))
     def apply(self, float in_0 ):
         assert isinstance(in_0, float), 'arg in_0 wrong type'
     
         cdef double _r = self.inst.get().apply((<float>in_0))
         py_result = <float>_r
-        return py_result
-    def getDataPoints(self):
-        _r = self.inst.get().getDataPoints()
-        cdef list py_result = _r
-        return py_result
-    def _init_0(self):
-        self.inst = shared_ptr[_TransformationDescription](new _TransformationDescription())
-    def _init_1(self, TransformationDescription in_0 ):
-        assert isinstance(in_0, TransformationDescription), 'arg in_0 wrong type'
-    
-        self.inst = shared_ptr[_TransformationDescription](new _TransformationDescription(<_TransformationDescription>deref(in_0.inst.get())))
-    def __init__(self, *args):
-        if not args:
-             self._init_0(*args)
-        elif (len(args)==1) and (isinstance(args[0], TransformationDescription)):
-             self._init_1(*args)
-        else:
-               raise Exception('can not handle type of %s' % (args,)) 
+        return py_result 
 cdef class PeakTypeEstimator:
     cdef shared_ptr[_PeakTypeEstimator] inst
     def __dealloc__(self):
@@ -3752,10 +3806,18 @@ cdef class FeatureFileOptions:
         assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
     
         self.inst.get().setMetadataOnly((<bool>in_0))
+    def getSizeOnly(self):
+        cdef bool _r = self.inst.get().getSizeOnly()
+        py_result = <bool>_r
+        return py_result
     def setLoadConvexHull(self,  in_0 ):
         assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
     
         self.inst.get().setLoadConvexHull((<bool>in_0))
+    def setSizeOnly(self,  in_0 ):
+        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
+    
+        self.inst.get().setSizeOnly((<bool>in_0))
     def getLoadSubordinates(self):
         cdef bool _r = self.inst.get().getLoadSubordinates()
         py_result = <bool>_r
@@ -3776,6 +3838,10 @@ cdef class MapAlignmentAlgorithmPoseClustering:
     cdef shared_ptr[_MapAlignmentAlgorithmPoseClustering] inst
     def __dealloc__(self):
          self.inst.reset()
+    def getLogType(self):
+        cdef _LogType _r = self.inst.get().getLogType()
+        py_result = <int>_r
+        return py_result
     def setParameters(self, Param param ):
         assert isinstance(param, Param), 'arg param wrong type'
     
@@ -3825,15 +3891,33 @@ cdef class MapAlignmentAlgorithmPoseClustering:
             return self._align_1(*args)
         else:
                raise Exception('can not handle type of %s' % (args,))
+    def endProgress(self):
+        self.inst.get().endProgress()
     def getName(self):
         cdef _String _r = self.inst.get().getName()
         py_result = _cast_const_away(<char*>_r.c_str())
         return py_result
+    def setProgress(self,  value ):
+        assert isinstance(value, (int, long)), 'arg value wrong type'
+    
+        self.inst.get().setProgress((<ptrdiff_t>value))
+    def setLogType(self, int in_0 ):
+        assert in_0 in [0, 1, 2], 'arg in_0 wrong type'
+    
+        self.inst.get().setLogType((<_LogType>in_0))
     def getParameters(self):
         cdef _Param * _r = new _Param(self.inst.get().getParameters())
         cdef Param py_result = Param.__new__(Param)
         py_result.inst = shared_ptr[_Param](_r)
-        return py_result 
+        return py_result
+    def startProgress(self,  begin ,  end , bytes label ):
+        assert isinstance(begin, (int, long)), 'arg begin wrong type'
+        assert isinstance(end, (int, long)), 'arg end wrong type'
+        assert isinstance(label, bytes), 'arg label wrong type'
+    
+    
+    
+        self.inst.get().startProgress((<ptrdiff_t>begin), (<ptrdiff_t>end), (_String(<char *>label))) 
 cdef class MSSpectrum:
     cdef shared_ptr[_MSSpectrum[_Peak1D]] inst
     def __dealloc__(self):
@@ -4022,6 +4106,10 @@ cdef class MSSpectrum:
         cdef _String _r = self.inst.get().getComment()
         py_result = _cast_const_away(<char*>_r.c_str())
         return py_result
+    def isSorted(self):
+        cdef bool _r = self.inst.get().isSorted()
+        py_result = <bool>_r
+        return py_result
     def setInstrumentSettings(self, InstrumentSettings in_0 ):
         assert isinstance(in_0, InstrumentSettings), 'arg in_0 wrong type'
     
@@ -4058,10 +4146,21 @@ cdef class MSSpectrum:
            py_result.append(item_py_result)
            inc(it__r)
         return py_result
-    def setNativeID(self, bytes in_0 ):
+    def _removeMetaValue_0(self, bytes in_0 ):
         assert isinstance(in_0, bytes), 'arg in_0 wrong type'
     
-        self.inst.get().setNativeID((_String(<char *>in_0)))
+        self.inst.get().removeMetaValue((_String(<char *>in_0)))
+    def _removeMetaValue_1(self,  in_0 ):
+        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
+    
+        self.inst.get().removeMetaValue((<int>in_0))
+    def removeMetaValue(self, *args):
+        if (len(args)==1) and (isinstance(args[0], bytes)):
+            return self._removeMetaValue_0(*args)
+        elif (len(args)==1) and (isinstance(args[0], (int, long))):
+            return self._removeMetaValue_1(*args)
+        else:
+               raise Exception('can not handle type of %s' % (args,))
     def clear(self,  in_0 ):
         assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
     
@@ -4103,21 +4202,10 @@ cdef class MSSpectrum:
            py_result.append(item_py_result)
            inc(it__r)
         return py_result
-    def _removeMetaValue_0(self, bytes in_0 ):
+    def setNativeID(self, bytes in_0 ):
         assert isinstance(in_0, bytes), 'arg in_0 wrong type'
     
-        self.inst.get().removeMetaValue((_String(<char *>in_0)))
-    def _removeMetaValue_1(self,  in_0 ):
-        assert isinstance(in_0, (int, long)), 'arg in_0 wrong type'
-    
-        self.inst.get().removeMetaValue((<int>in_0))
-    def removeMetaValue(self, *args):
-        if (len(args)==1) and (isinstance(args[0], bytes)):
-            return self._removeMetaValue_0(*args)
-        elif (len(args)==1) and (isinstance(args[0], (int, long))):
-            return self._removeMetaValue_1(*args)
-        else:
-               raise Exception('can not handle type of %s' % (args,))
+        self.inst.get().setNativeID((_String(<char *>in_0)))
     def clearMetaInfo(self):
         self.inst.get().clearMetaInfo()
     def getProducts(self):

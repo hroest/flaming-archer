@@ -46,7 +46,18 @@ namespace OpenMS
     metadata_only_(false),
     has_rt_range_(false),
     has_mz_range_(false),
-    has_intensity_range_(false)
+    has_intensity_range_(false),
+    size_only_(false)
+  {
+  }
+
+  FeatureFileOptions::FeatureFileOptions(const FeatureFileOptions & other) :
+    loadConvexhull_(other.loadConvexhull_),
+    loadSubordinates_(other.loadSubordinates_),
+    metadata_only_(other.metadata_only_),
+    has_rt_range_(other.has_rt_range_),
+    has_mz_range_(other.has_mz_range_),
+    has_intensity_range_(other.has_intensity_range_)
   {
   }
 
@@ -110,7 +121,17 @@ namespace OpenMS
   {
     return has_mz_range_;
   }
+  
+  bool FeatureFileOptions::getSizeOnly() const
+  {
+    return size_only_;
+  }
 
+  void FeatureFileOptions::setSizeOnly(bool size_only)
+  {
+    size_only_ = size_only;
+  }
+  
   const DRange<1> & FeatureFileOptions::getMZRange() const
   {
     return mz_range_;

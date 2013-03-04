@@ -79,6 +79,8 @@ public:
       ParamEntry();
       /// Constructor with name, description, value and advanced flag
       ParamEntry(const String& n, const DataValue& v, const String& d, const StringList& t = StringList());
+      /// Copy constructor
+      ParamEntry(const ParamEntry &other);
       /// Destructor
       ~ParamEntry();
 
@@ -459,7 +461,7 @@ protected:
       - If a parameter is present for which no default value is specified, a warning is issued to @p os.
       - If the type of a parameter and its default do not match, an exception is thrown.
       - If a string parameter contains an invalid string, an exception is thrown.
-      -	If parameter entry is a string list, an exception is thrown, if one or more list members are invalid strings
+      - If parameter entry is a string list, an exception is thrown, if one or more list members are invalid strings
       - If a numeric parameter is out of the valid range, an exception is thrown.
       - If entry is a numeric list an exception is thrown, if one or more list members are out of the valid range
 

@@ -3400,27 +3400,6 @@ cdef class MSQuantifications:
          self.inst.reset()
 
     
-    def load(self, bytes filename ,  trim_lines ,  first_n ):
-        assert isinstance(filename, bytes), 'arg filename wrong type'
-        assert isinstance(trim_lines, (int, long)), 'arg trim_lines wrong type'
-        assert isinstance(first_n, (int, long)), 'arg first_n wrong type'
-    
-    
-    
-        self.inst.get().load((_String(<char *>filename)), (<bool>trim_lines), (<int>first_n))
-    
-    def __init__(self):
-        self.inst = shared_ptr[_MSQuantifications](new _MSQuantifications())
-    
-    def setConsensusMaps(self, list in_0 ):
-        assert isinstance(in_0, list) and all(isinstance(li, ConsensusMap) for li in in_0), 'arg in_0 wrong type'
-        cdef libcpp_vector[_ConsensusMap] * v0 = new libcpp_vector[_ConsensusMap]()
-        cdef ConsensusMap item0
-        for item0 in in_0:
-           v0.push_back(deref(item0.inst.get()))
-        self.inst.get().setConsensusMaps(deref(v0))
-        del v0
-    
     def getConsensusMaps(self):
         _r = self.inst.get().getConsensusMaps()
         py_result = []
@@ -3432,6 +3411,18 @@ cdef class MSQuantifications:
            py_result.append(item_py_result)
            inc(it__r)
         return py_result
+    
+    def setConsensusMaps(self, list in_0 ):
+        assert isinstance(in_0, list) and all(isinstance(li, ConsensusMap) for li in in_0), 'arg in_0 wrong type'
+        cdef libcpp_vector[_ConsensusMap] * v0 = new libcpp_vector[_ConsensusMap]()
+        cdef ConsensusMap item0
+        for item0 in in_0:
+           v0.push_back(deref(item0.inst.get()))
+        self.inst.get().setConsensusMaps(deref(v0))
+        del v0
+    
+    def __init__(self):
+        self.inst = shared_ptr[_MSQuantifications](new _MSQuantifications())
     
     def __richcmp__(self, other, op):
         if op not in (2, 3):

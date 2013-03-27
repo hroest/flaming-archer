@@ -127,6 +127,12 @@ public:
       chromatograms_(source.chromatograms_)
     {}
 
+    /// Copy constructor
+    void explicit_copy (const MSExperiment & source) 
+    {
+      operator=(source);
+    }
+
     /// Assignment operator
     MSExperiment & operator=(const MSExperiment & source)
     {

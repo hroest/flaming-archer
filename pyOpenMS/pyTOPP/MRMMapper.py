@@ -13,7 +13,7 @@ def algorithm(chromatogram_map, targeted, precursor_tolerance, product_tolerance
     # copy all meta data from old chromatogram
     # TODO how to copy this! improve this!
     output = pyopenms.MSExperiment();
-    output.explicit_copy(chromatogram_map)
+    output.fromExperiment(chromatogram_map)
     output.clear(False); 
     empty_chromats = []
     output.setChromatograms(empty_chromats);

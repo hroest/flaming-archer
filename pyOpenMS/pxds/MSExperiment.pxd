@@ -17,7 +17,6 @@ cdef extern from "<OpenMS/KERNEL/MSExperiment.h>" namespace "OpenMS":
 
         MSExperiment() nogil except +
         MSExperiment(MSExperiment[PeakT, ChromoPeakT] &)  nogil except + # wrap-ignore
-        void explicit_copy(MSExperiment[PeakT, ChromoPeakT] &)  nogil except + 
 
         double getMinMZ() nogil except +
         double getMaxMZ() nogil except +

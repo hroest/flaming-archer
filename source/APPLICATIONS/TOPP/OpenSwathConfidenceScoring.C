@@ -188,8 +188,8 @@ public:
     ConfidenceScoring scoring(test_mode_);
     scoring.setLogType(log_type_);
     scoring.initialize(library_, n_decoys_, n_transitions_, rt_trafo_);
-    scoring.initialize_glm(getDoubleOption_("GLM:intercept"), getDoubleOption_("GLM:delta_rt"), getDoubleOption_("GLM:dist_int"));
-    scoring.score_map(features);
+    scoring.initializeGlm(getDoubleOption_("GLM:intercept"), getDoubleOption_("GLM:delta_rt"), getDoubleOption_("GLM:dist_int"));
+    scoring.scoreMap(features);
 
     LOG_DEBUG << "Storing results..." << endl;
     addDataProcessing_(features, 

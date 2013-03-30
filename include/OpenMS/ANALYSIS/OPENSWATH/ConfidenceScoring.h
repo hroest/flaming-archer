@@ -150,7 +150,7 @@ public:
       rt_trafo_ = rt_trafo;
     }
 
-    void initialize_glm(double intercept, double rt_coef, double int_coef)
+    void initializeGlm(double intercept, double rt_coef, double int_coef)
     {
       glm_.intercept = intercept;
       glm_.rt_coef = rt_coef;
@@ -158,7 +158,7 @@ public:
     }
 
     /// Score a feature map -> make sure the class is properly initialized
-    void score_map(FeatureMap<> & features)
+    void scoreMap(FeatureMap<> & features)
     {
       // are there enough assays in the library?
       Size n_assays = library_.getPeptides().size();

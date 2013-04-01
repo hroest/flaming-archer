@@ -52,7 +52,7 @@
 namespace OpenMS
 {
 
-class ConfidenceScoring :
+class OPENMS_DLLAPI ConfidenceScoring :
     public ProgressLogger
 {
 public:

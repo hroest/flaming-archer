@@ -86,7 +86,7 @@ namespace OpenMS
    * @see SILACFiltering
    */
   class OPENMS_DLLAPI SILACAnalyzer :
-    ProgressLogger
+    public ProgressLogger
   {
   private:
 
@@ -156,6 +156,26 @@ namespace OpenMS
       // labels part
       map<String, DoubleReal> label_identifiers)
     {
+
+    std::cout << "initialize" << std::endl;
+    std::cout << "sel labels " << selected_labels << std::endl;
+
+    std::cout <<  selected_labels_ << std::endl;
+    std::cout <<  charge_min_ << std::endl;
+    std::cout <<  charge_max_ << std::endl;
+    std::cout <<  missed_cleavages_ << std::endl;
+    std::cout <<  isotopes_per_peptide_min_ << std::endl;
+    std::cout <<  isotopes_per_peptide_max_ << std::endl;
+
+    std::cout <<  rt_threshold_ << std::endl;
+    std::cout <<  rt_min_ << std::endl;
+    std::cout <<  intensity_cutoff_ << std::endl;
+    std::cout <<  intensity_correlation_ << std::endl;
+    std::cout <<  model_deviation_ << std::endl;
+    std::cout <<  allow_missing_peaks_ << std::endl;
+
+
+
       selected_labels          = selected_labels_;
       charge_min               = charge_min_;
       charge_max               = charge_max_;
@@ -170,7 +190,9 @@ namespace OpenMS
       model_deviation        = model_deviation_;
       allow_missing_peaks    = allow_missing_peaks_;
 
+
       calculateLabelsAndMassShifts(label_identifiers);
+
     }
 
     /**
@@ -183,6 +205,24 @@ namespace OpenMS
      * (selected_labels) using the initialize_sample call.
      */
     void calculateLabelsAndMassShifts(map<String, DoubleReal> label_identifiers);
+
+    void run_all(MSExperiment<Peak1D> & exp, ConsensusMap & out_map)
+    {
+      PeakWidthEstimator::Result peak_width;
+      vector<vector<SILACPattern> > data;
+      MSQuantifications msq;
+      vector<Clustering *> cluster_data;
+
+      peak_width = estimatePeakWidth(exp);
+      filterData(exp, peak_width, data); 
+      clusterData(exp, peak_width, cluster_data, data);
+
+      // write output to consensus map
+      for (vector<Clustering *>::const_iterator it = cluster_data.begin(); it != cluster_data.end(); ++it)
+      {
+        generateClusterConsensusByCluster(out_map, **it);
+      }
+    }
 
     /**
      * @brief Peak width estimation

@@ -42,7 +42,8 @@ using namespace std;
 namespace OpenMS
 {
 
-  QTCluster::QTCluster()
+  QTCluster::QTCluster() :
+    valid_(true)
   {
   }
 
@@ -50,7 +51,8 @@ namespace OpenMS
                        DoubleReal max_distance, bool use_IDs) :
     center_point_(center_point), neighbors_(), max_distance_(max_distance),
     num_maps_(num_maps), quality_(0.0), changed_(false), use_IDs_(use_IDs),
-    annotations_()
+    annotations_(),
+    valid_(true)
   {
     if (use_IDs)
       annotations_ = center_point->getAnnotations();
@@ -144,7 +146,10 @@ namespace OpenMS
          rm_it != removed.end(); ++rm_it)
     {
       if (rm_it->second == center_point_)
+      {
+        this->setInvalid(); //quality_ = -1;
         return false;
+      }
     }
     // update the cluster contents:
     for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator rm_it = removed.begin();
@@ -183,6 +188,13 @@ namespace OpenMS
       computeQuality_();
       changed_ = false;
     }
+#if 0
+#else
+    if (!valid_)
+    {
+      return -101.0;
+    }
+#endif
     return quality_;
   }
 

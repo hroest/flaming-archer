@@ -99,7 +99,7 @@ namespace OpenMS
     setParameters_(max_intensity, max_mz);
 
     // create the hash grid and fill it with features:
-    //cout << "Hashing..." << endl;
+    cout << "Hashing..." << endl;
     list<GridFeature> grid_features;
     Grid grid(Grid::ClusterCenter(max_diff_rt_, max_diff_mz_));
     for (Size map_index = 0; map_index < num_maps_; ++map_index)
@@ -124,8 +124,12 @@ namespace OpenMS
       }
     }
 
+    // why list: 
+    // http://stackoverflow.com/questions/2209224/vector-vs-list-in-stl
+    // -> cheap to erase elements
+
     // compute QT clustering:
-    //cout << "Clustering..." << endl;
+    cout << "Clustering..." << endl;
     list<QTCluster> clustering;
     computeClustering_(grid, clustering);
     // number of clusters == number of data points:
@@ -133,15 +137,41 @@ namespace OpenMS
 
     ProgressLogger logger;
     logger.setLogType(ProgressLogger::CMD);
+
+    logger.startProgress(0, size, "pre-computing ");
+    Size progress = 0;
+    boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > element_mapping;
+    for (list<QTCluster>::iterator it = clustering.begin(); it != clustering.end(); ++it)
+    {
+      boost::unordered::unordered_map<Size, GridFeature *> elements;
+      it->getElements(elements);
+
+      for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator elem_it = elements.begin();
+             elem_it != elements.end(); ++elem_it)
+      {
+        element_mapping[elem_it->second].push_back( it );
+      }
+      logger.setProgress(progress++);
+    }
+    logger.endProgress();
+
+
     logger.startProgress(0, size, "linking features");
 
     result_map.clear(false);
 
+
+
+
+    cout << "Clustering... of " << size << " elements." << endl;
     while (!clustering.empty())
     {
       // cout << "Clusters: " << clustering.size() << endl;
       ConsensusFeature consensus_feature;
-      makeConsensusFeature_(clustering, consensus_feature);
+      makeConsensusFeature_(clustering, consensus_feature, element_mapping);
+#if 1
+      if  (!clustering.empty())
+#endif
       result_map.push_back(consensus_feature);
       logger.setProgress(size - clustering.size());
     }
@@ -150,13 +180,40 @@ namespace OpenMS
   }
 
   void QTClusterFinder::makeConsensusFeature_(list<QTCluster> & clustering,
-                                              ConsensusFeature & feature)
+         ConsensusFeature & feature,
+         boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > & element_mapping
+         )
   {
+
     // find the best cluster:
     list<QTCluster>::iterator best = std::max_element(clustering.begin(), clustering.end());
     boost::unordered::unordered_map<Size, GridFeature *> elements;
     best->getElements(elements);
-    // cout << "Elements: " << elements.size() << endl;
+    //cout << "Elements: " << elements.size() << endl;
+
+#if 0
+#else
+    if (best->isInvalid())
+    {
+        std::cout << "best is invalid!! " << best->getQuality() <<std::endl;
+
+    for (list<QTCluster>::iterator it = clustering.begin();
+         it != clustering.end(); ++it)
+    {
+        if (! it->isInvalid() )
+        {
+          std::cout << " we found valid...!!! ?? " << it->getQuality() << " vs .. " << best->getQuality() << " but " 
+              << best->isInvalid() << " / "  << it->isInvalid() << std::endl;
+        }
+        //std::cout << " here  ?!" <<std::endl;
+    }
+
+      // this means we can stop -> clear clustering and return
+      clustering.clear();
+      std::cout << " returning with clustering clear "<< clustering.empty() << std::endl;
+      return;
+    }
+#endif
 
     // create consensus feature from best cluster:
     feature.setQuality(best->getQuality());
@@ -167,12 +224,13 @@ namespace OpenMS
     }
     feature.computeConsensus();
 
+#if 0
     // update the clustering:
     // 1. remove current "best" cluster
     // 2. remove all elements contained in this cluster from all elements in
     //    the list
     clustering.erase(best);
-
+    // 75% of the remaining time here... _not_ due to recomputation of feature quality
     for (list<QTCluster>::iterator it = clustering.begin();
          it != clustering.end(); )
     {
@@ -185,6 +243,30 @@ namespace OpenMS
         ++it;
       }
     }
+#else
+    best->setInvalid();
+    // for (boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > element_mapping
+    for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator it = elements.begin();
+         it != elements.end(); ++it)
+    {
+      // feature.insert(it->first, it->second->getFeature());
+      for (std::vector< list<QTCluster>::iterator >::iterator 
+            cluster_it  = element_mapping[&(*it->second)].begin();
+            cluster_it != element_mapping[&(*it->second)].end(); ++cluster_it)
+      {
+        list<QTCluster>::iterator tmp_it = *cluster_it;
+        if (!tmp_it->update(elements))       // cluster is invalid (center point removed):
+        {
+          tmp_it->setInvalid();
+          //tmp_it = clustering.erase(tmp_it);
+        }
+        /*
+        */
+      }
+    }
+#endif
+
+
   }
 
   void QTClusterFinder::run(const vector<ConsensusMap> & input_maps,

@@ -119,6 +119,7 @@ private:
      */
     DoubleReal optimizeAnnotations_();
 
+    bool valid_;
 public:
     /**
      * @brief Detailed constructor
@@ -167,6 +168,10 @@ public:
 
     /// Return the set of peptide sequences annotated to the cluster center
     const std::set<AASequence> & getAnnotations();
+
+    void setInvalid() {quality_ = -101.0; valid_ = false;}
+
+    bool isInvalid() {return !valid_;}
 
   };
 }

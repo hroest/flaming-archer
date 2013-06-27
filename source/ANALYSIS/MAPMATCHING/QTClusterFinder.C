@@ -223,7 +223,7 @@ namespace OpenMS
 
     best->setInvalid();
 
-#if 1
+#if 0
     for (list<QTCluster>::iterator it = clustering.begin();
          it != clustering.end(); it++)
     {
@@ -251,9 +251,12 @@ namespace OpenMS
             cluster_it  = element_mapping[&(*it->second)].begin();
             cluster_it != element_mapping[&(*it->second)].end(); ++cluster_it)
       {
-        if (!(*cluster_it)->update(elements))       // cluster is invalid (center point removed):
+        if (!(*cluster_it)->isInvalid())
         {
-          (*cluster_it)->setInvalid();
+          if (!(*cluster_it)->update(elements))       // cluster is invalid (center point removed):
+          {
+            (*cluster_it)->setInvalid();
+          }
         }
       }
     }

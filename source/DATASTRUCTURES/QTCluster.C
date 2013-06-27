@@ -179,18 +179,12 @@ namespace OpenMS
 
   DoubleReal QTCluster::getQuality()
   {
-    if (changed_ && valid_)
+    if (changed_)
     {
       // an invalid feature may get changed again and the quality gets recomputed 
       computeQuality_();
       changed_ = false;
     }
-    /*
-    if (!valid_)
-    {
-     return -101.0;
-    }
-    */
     return quality_;
   }
 

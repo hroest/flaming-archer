@@ -182,8 +182,6 @@ namespace OpenMS
     // find the best cluster:
 #if 1
     list<QTCluster>::iterator best = clustering.begin();
-    double best_qual = best->getQuality();
-
     for (list<QTCluster>::iterator it = clustering.begin();
          it != clustering.end(); ++it)
     {
@@ -191,7 +189,6 @@ namespace OpenMS
       {
         if (it->getQuality() > best->getQuality())
         {
-          best_qual = it->getQuality();
           best = it;
         }
       }

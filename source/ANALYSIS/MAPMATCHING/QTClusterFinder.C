@@ -180,7 +180,7 @@ namespace OpenMS
          )
   {
     // find the best cluster:
-#if 0
+#if 1
     list<QTCluster>::iterator best = clustering.begin();
     double best_qual = best->getQuality();
 
@@ -229,6 +229,7 @@ namespace OpenMS
     {
       if (!it->isInvalid())
       {
+        // do not update (and change quality) if it is already invalid
         if (!it->update(elements))       // cluster is invalid (center point removed):
         {
           it->setInvalid();

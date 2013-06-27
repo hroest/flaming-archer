@@ -95,7 +95,7 @@ namespace OpenMS
     }
   }
 
-  void QTCluster::getElements(boost::unordered::unordered_map<Size, GridFeature *> & elements)
+  void QTCluster::getElements(boost::unordered::unordered_map<Size, GridFeature *> & elements, bool getNeighbors)
   {
     elements.clear();
     elements[center_point_->getMapIndex()] = center_point_;
@@ -111,7 +111,7 @@ namespace OpenMS
       optimizeAnnotations_();
     }
 
-    if (annotations_.empty() || !center_point_->getAnnotations().empty())
+    if (annotations_.empty() || !center_point_->getAnnotations().empty() || getNeighbors)
     {
       // no need to take annotations into account:
       for (NeighborMap::const_iterator it = neighbors_.begin();

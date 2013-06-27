@@ -155,7 +155,7 @@ public:
     void add(GridFeature * element, DoubleReal distance);
 
     /// Gets the clustered elements
-    void getElements(boost::unordered::unordered_map<Size, GridFeature *> & elements);
+    void getElements(boost::unordered::unordered_map<Size, GridFeature *> & elements, bool getNeighbors=false);
 
     /**
      * @brief Updates the cluster after data points were removed
@@ -172,6 +172,8 @@ public:
     void setInvalid() {quality_ = -101.0; valid_ = false;}
 
     bool isInvalid() {return !valid_;}
+
+    NeighborMap getNeighbors() {return neighbors_;}
 
   };
 }

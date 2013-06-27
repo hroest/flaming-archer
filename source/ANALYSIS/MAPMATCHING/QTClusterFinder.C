@@ -143,14 +143,42 @@ namespace OpenMS
     boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > element_mapping;
     for (list<QTCluster>::iterator it = clustering.begin(); it != clustering.end(); ++it)
     {
-      boost::unordered::unordered_map<Size, GridFeature *> elements;
-      it->getElements(elements);
+      boost::unordered::unordered_map<Size, GridFeature *> elements; // = it->getNeighbors();
+      // it->getElements(elements, true);
+      //
+      typedef boost::unordered::unordered_multimap<DoubleReal, GridFeature *> InnerNeighborMap;
+      typedef boost::unordered::unordered_map<Size, boost::unordered::unordered_multimap<DoubleReal, GridFeature *> > NeighborMap;
+      NeighborMap neigh = it->getNeighbors();
 
+
+      for (NeighborMap::iterator n_it = neigh.begin(); n_it != neigh.end(); n_it++)
+      {
+        for (InnerNeighborMap::iterator i_it = n_it->second.begin(); i_it != n_it->second.end(); i_it++)
+        {
+          element_mapping[i_it->second].push_back( it );
+        }
+      }
+
+    /*
+    for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator rm_it = removed.begin();
+         rm_it != removed.end(); ++rm_it)
+    {
+      NeighborMap::iterator pos = neighbors_.find(rm_it->first);
+      for (boost::unordered::unordered_multimap<DoubleReal, GridFeature *>::iterator feat_it =
+             pos->second.begin(); feat_it != pos->second.end(); ++feat_it)
+      {
+      }
+    }
+    */
+
+
+      /*
       for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator elem_it = elements.begin();
              elem_it != elements.end(); ++elem_it)
       {
         element_mapping[elem_it->second].push_back( it );
       }
+      */
       logger.setProgress(progress++);
     }
     logger.endProgress();
@@ -248,7 +276,30 @@ namespace OpenMS
 #else
     best->setInvalid();
     // for (boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > element_mapping
+
+    std::set<int> inv1;
+    int cnt = 0;
+
     /*
+    for (list<QTCluster>::iterator it = clustering.begin();
+         it != clustering.end(); it++)
+    {
+      if (!it->update(elements))       // cluster is invalid (center point removed):
+      {
+        it->setInvalid();
+        cnt++;
+        std::cout << "invalidate " << &(*it) << std::endl;
+      }
+      else
+      {
+        // ++it;
+      }
+    }
+    */
+
+    std::cout << " ======= " <<std::endl;
+
+    int cnt2 = 0;
     for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator it = elements.begin();
          it != elements.end(); ++it)
     {
@@ -258,28 +309,26 @@ namespace OpenMS
             cluster_it != element_mapping[&(*it->second)].end(); ++cluster_it)
       {
         list<QTCluster>::iterator tmp_it = *cluster_it;
+        // if (tmp_it->isInvalid()) {continue;}
         if (!tmp_it->update(elements))       // cluster is invalid (center point removed):
         {
+          cnt2++;
           tmp_it->setInvalid();
+          //std::cout << "-> invalidate " << &(*tmp_it) << std::endl;
           //tmp_it = clustering.erase(tmp_it);
         }
       }
     }
-    */
 
 
-    for (list<QTCluster>::iterator it = clustering.begin();
-         it != clustering.end(); it++)
+    std::cout << " counted invalided " << cnt << " vs the number of " << cnt2 << std::endl;
+
+    /*
+    if (cnt != cnt2)
     {
-      if (!it->update(elements))       // cluster is invalid (center point removed):
-      {
-        it->setInvalid();
-      }
-      else
-      {
-        // ++it;
-      }
+        throw 20;
     }
+    */
 
 #endif
 

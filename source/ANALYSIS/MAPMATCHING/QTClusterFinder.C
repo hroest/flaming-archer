@@ -180,6 +180,7 @@ namespace OpenMS
   {
     // find the best cluster:
 #if 1
+    // begin may be invalid ... 
     list<QTCluster>::iterator best = clustering.begin();
     while (best->isInvalid() && best != clustering.end()) {best++;}
     for (list<QTCluster>::iterator it = best;
@@ -197,7 +198,7 @@ namespace OpenMS
     list<QTCluster>::iterator best = std::max_element(clustering.begin(), clustering.end());
 #endif
 
-    if (best == clustering.end() || best->isInvalid())
+    if (best == clustering.end())
     {
       // this means we can stop -> clear clustering and return
       clustering.clear();
@@ -226,6 +227,8 @@ namespace OpenMS
             cluster_it  = element_mapping[&(*it->second)].begin();
             cluster_it != element_mapping[&(*it->second)].end(); ++cluster_it)
       {
+        // we do not want to update invalid features (saves time and does not
+        // recompute the quality)
         if (!(*cluster_it)->isInvalid())
         {
           if (!(*cluster_it)->update(elements))       // cluster is invalid (center point removed):

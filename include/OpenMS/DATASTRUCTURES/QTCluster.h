@@ -169,9 +169,9 @@ public:
     /// Return the set of peptide sequences annotated to the cluster center
     const std::set<AASequence> & getAnnotations();
 
-    void setInvalid() {valid_ = false;}
+    inline void setInvalid() {valid_ = false;}
 
-    bool isInvalid() {return !valid_;}
+    inline bool isInvalid() {return !valid_;}
 
     NeighborMap getNeighbors() {return neighbors_;}
 

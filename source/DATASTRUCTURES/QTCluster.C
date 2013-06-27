@@ -145,10 +145,7 @@ namespace OpenMS
          rm_it != removed.end(); ++rm_it)
     {
       if (rm_it->second == center_point_)
-      {
-        this->setInvalid();
         return false;
-      }
     }
     // update the cluster contents:
     for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator rm_it = removed.begin();

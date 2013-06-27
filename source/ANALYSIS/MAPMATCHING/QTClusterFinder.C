@@ -135,22 +135,14 @@ namespace OpenMS
     // number of clusters == number of data points:
     Size size = clustering.size();
 
-    ProgressLogger logger;
-    logger.setLogType(ProgressLogger::CMD);
-
-    logger.startProgress(0, size, "pre-computing ");
-    Size progress = 0;
+    // Create a temporary map where we store which GridFeatures are next to which Clusters
     boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > element_mapping;
     for (list<QTCluster>::iterator it = clustering.begin(); it != clustering.end(); ++it)
     {
       boost::unordered::unordered_map<Size, GridFeature *> elements; // = it->getNeighbors();
-      // it->getElements(elements, true);
-      //
       typedef boost::unordered::unordered_multimap<DoubleReal, GridFeature *> InnerNeighborMap;
       typedef boost::unordered::unordered_map<Size, boost::unordered::unordered_multimap<DoubleReal, GridFeature *> > NeighborMap;
       NeighborMap neigh = it->getNeighbors();
-
-
       for (NeighborMap::iterator n_it = neigh.begin(); n_it != neigh.end(); n_it++)
       {
         for (InnerNeighborMap::iterator i_it = n_it->second.begin(); i_it != n_it->second.end(); i_it++)
@@ -158,38 +150,13 @@ namespace OpenMS
           element_mapping[i_it->second].push_back( it );
         }
       }
-
-    /*
-    for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator rm_it = removed.begin();
-         rm_it != removed.end(); ++rm_it)
-    {
-      NeighborMap::iterator pos = neighbors_.find(rm_it->first);
-      for (boost::unordered::unordered_multimap<DoubleReal, GridFeature *>::iterator feat_it =
-             pos->second.begin(); feat_it != pos->second.end(); ++feat_it)
-      {
-      }
     }
-    */
 
-
-      /*
-      for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator elem_it = elements.begin();
-             elem_it != elements.end(); ++elem_it)
-      {
-        element_mapping[elem_it->second].push_back( it );
-      }
-      */
-      logger.setProgress(progress++);
-    }
-    logger.endProgress();
-
-
+    ProgressLogger logger;
+    logger.setLogType(ProgressLogger::CMD);
     logger.startProgress(0, size, "linking features");
-
+    Size progress = 0;
     result_map.clear(false);
-
-
-
 
     cout << "Clustering... of " << size << " elements." << endl;
     while (!clustering.empty())
@@ -197,14 +164,12 @@ namespace OpenMS
       // cout << "Clusters: " << clustering.size() << endl;
       ConsensusFeature consensus_feature;
       makeConsensusFeature_(clustering, consensus_feature, element_mapping);
-#if 1
-      if  (!clustering.empty())
-#endif
-      result_map.push_back(consensus_feature);
-      logger.setProgress(size - clustering.size());
+      if (!clustering.empty())
+      {
+        result_map.push_back(consensus_feature);
+      }
+      logger.setProgress(progress++);
     }
-
-    std::cout << " got a map with " << result_map.size() << " features" << std::endl;
 
     logger.endProgress();
   }
@@ -214,36 +179,37 @@ namespace OpenMS
          boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > & element_mapping
          )
   {
-
     // find the best cluster:
-    list<QTCluster>::iterator best = std::max_element(clustering.begin(), clustering.end());
-    boost::unordered::unordered_map<Size, GridFeature *> elements;
-    best->getElements(elements);
-    //cout << "Elements: " << elements.size() << endl;
-
-#if 0
-#else
-    if (best->isInvalid())
-    {
-        std::cout << "best is invalid!! " << best->getQuality() <<std::endl;
+#if 1
+    list<QTCluster>::iterator best = clustering.begin();
+    double best_qual = best->getQuality();
 
     for (list<QTCluster>::iterator it = clustering.begin();
          it != clustering.end(); ++it)
     {
-        if (! it->isInvalid() )
+      if (!it->isInvalid())
+      {
+        if (it->getQuality() > best->getQuality())
         {
-          std::cout << " we found valid...!!! ?? " << it->getQuality() << " vs .. " << best->getQuality() << " but " 
-              << best->isInvalid() << " / "  << it->isInvalid() << std::endl;
+          best_qual = it->getQuality();
+          best = it;
         }
-        //std::cout << " here  ?!" <<std::endl;
+      }
     }
+#else
+    list<QTCluster>::iterator best = std::max_element(clustering.begin(), clustering.end());
+#endif
 
+    boost::unordered::unordered_map<Size, GridFeature *> elements;
+    best->getElements(elements);
+    //cout << "Elements: " << elements.size() << endl;
+
+    if (best->isInvalid())
+    {
       // this means we can stop -> clear clustering and return
       clustering.clear();
-      std::cout << " returning with clustering clear "<< clustering.empty() << std::endl;
       return;
     }
-#endif
 
     // create consensus feature from best cluster:
     feature.setQuality(best->getQuality());
@@ -254,84 +220,21 @@ namespace OpenMS
     }
     feature.computeConsensus();
 
-#if 0
-    // update the clustering:
-    // 1. remove current "best" cluster
-    // 2. remove all elements contained in this cluster from all elements in
-    //    the list
-    clustering.erase(best);
-    // 75% of the remaining time here... _not_ due to recomputation of feature quality
-    for (list<QTCluster>::iterator it = clustering.begin();
-         it != clustering.end(); )
-    {
-      if (!it->update(elements))       // cluster is invalid (center point removed):
-      {
-        it = clustering.erase(it);
-      }
-      else
-      {
-        ++it;
-      }
-    }
-#else
     best->setInvalid();
-    // for (boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > element_mapping
 
-    std::set<int> inv1;
-    int cnt = 0;
-
-    /*
-    for (list<QTCluster>::iterator it = clustering.begin();
-         it != clustering.end(); it++)
-    {
-      if (!it->update(elements))       // cluster is invalid (center point removed):
-      {
-        it->setInvalid();
-        cnt++;
-        std::cout << "invalidate " << &(*it) << std::endl;
-      }
-      else
-      {
-        // ++it;
-      }
-    }
-    */
-
-    std::cout << " ======= " <<std::endl;
-
-    int cnt2 = 0;
     for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator it = elements.begin();
          it != elements.end(); ++it)
     {
-      // feature.insert(it->first, it->second->getFeature());
       for (std::vector< list<QTCluster>::iterator >::iterator 
             cluster_it  = element_mapping[&(*it->second)].begin();
             cluster_it != element_mapping[&(*it->second)].end(); ++cluster_it)
       {
-        list<QTCluster>::iterator tmp_it = *cluster_it;
-        // if (tmp_it->isInvalid()) {continue;}
-        if (!tmp_it->update(elements))       // cluster is invalid (center point removed):
+        if (!(*cluster_it)->update(elements))       // cluster is invalid (center point removed):
         {
-          cnt2++;
-          tmp_it->setInvalid();
-          //std::cout << "-> invalidate " << &(*tmp_it) << std::endl;
-          //tmp_it = clustering.erase(tmp_it);
+          (*cluster_it)->setInvalid();
         }
       }
     }
-
-
-    std::cout << " counted invalided " << cnt << " vs the number of " << cnt2 << std::endl;
-
-    /*
-    if (cnt != cnt2)
-    {
-        throw 20;
-    }
-    */
-
-#endif
-
 
   }
 

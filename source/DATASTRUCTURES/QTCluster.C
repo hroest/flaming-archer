@@ -42,8 +42,7 @@ using namespace std;
 namespace OpenMS
 {
 
-  QTCluster::QTCluster() :
-    valid_(true)
+  QTCluster::QTCluster()
   {
   }
 
@@ -95,7 +94,7 @@ namespace OpenMS
     }
   }
 
-  void QTCluster::getElements(boost::unordered::unordered_map<Size, GridFeature *> & elements, bool getNeighbors)
+  void QTCluster::getElements(boost::unordered::unordered_map<Size, GridFeature *> & elements)
   {
     elements.clear();
     elements[center_point_->getMapIndex()] = center_point_;
@@ -111,7 +110,7 @@ namespace OpenMS
       optimizeAnnotations_();
     }
 
-    if (annotations_.empty() || !center_point_->getAnnotations().empty() || getNeighbors)
+    if (annotations_.empty() || !center_point_->getAnnotations().empty())
     {
       // no need to take annotations into account:
       for (NeighborMap::const_iterator it = neighbors_.begin();
@@ -147,7 +146,7 @@ namespace OpenMS
     {
       if (rm_it->second == center_point_)
       {
-        this->setInvalid(); //quality_ = -1;
+        this->setInvalid();
         return false;
       }
     }
@@ -188,13 +187,6 @@ namespace OpenMS
       computeQuality_();
       changed_ = false;
     }
-#if 0
-#else
-    if (!valid_)
-    {
-      return -101.0;
-    }
-#endif
     return quality_;
   }
 

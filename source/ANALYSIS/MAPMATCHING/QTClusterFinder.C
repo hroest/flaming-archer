@@ -179,8 +179,6 @@ namespace OpenMS
              std::vector< QTCluster * > > & element_mapping)
   {
     // find the best cluster:
-#if 0
-    // begin may be invalid ... 
     list<QTCluster>::iterator best = clustering.begin();
     while (best->isInvalid() && best != clustering.end()) {best++;}
     for (list<QTCluster>::iterator it = best;
@@ -194,9 +192,6 @@ namespace OpenMS
         }
       }
     }
-#else
-    list<QTCluster>::iterator best = std::max_element(clustering.begin(), clustering.end());
-#endif
 
     if (best == clustering.end() || best->isInvalid())
     {

@@ -179,7 +179,7 @@ namespace OpenMS
          boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > & element_mapping)
   {
     // find the best cluster:
-#if 1
+#if 0
     // begin may be invalid ... 
     list<QTCluster>::iterator best = clustering.begin();
     while (best->isInvalid() && best != clustering.end()) {best++;}
@@ -198,7 +198,7 @@ namespace OpenMS
     list<QTCluster>::iterator best = std::max_element(clustering.begin(), clustering.end());
 #endif
 
-    if (best == clustering.end())
+    if (best == clustering.end() || best->isInvalid())
     {
       // this means we can stop -> clear clustering and return
       clustering.clear();

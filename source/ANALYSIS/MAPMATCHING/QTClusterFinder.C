@@ -176,6 +176,8 @@ namespace OpenMS
       logger.setProgress(size - clustering.size());
     }
 
+    std::cout << " got a map with " << result_map.size() << " features" << std::endl;
+
     logger.endProgress();
   }
 
@@ -246,6 +248,7 @@ namespace OpenMS
 #else
     best->setInvalid();
     // for (boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > element_mapping
+    /*
     for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator it = elements.begin();
          it != elements.end(); ++it)
     {
@@ -260,10 +263,24 @@ namespace OpenMS
           tmp_it->setInvalid();
           //tmp_it = clustering.erase(tmp_it);
         }
-        /*
-        */
       }
     }
+    */
+
+
+    for (list<QTCluster>::iterator it = clustering.begin();
+         it != clustering.end(); it++)
+    {
+      if (!it->update(elements))       // cluster is invalid (center point removed):
+      {
+        it->setInvalid();
+      }
+      else
+      {
+        // ++it;
+      }
+    }
+
 #endif
 
 

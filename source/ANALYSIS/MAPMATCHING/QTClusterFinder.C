@@ -179,19 +179,7 @@ namespace OpenMS
              std::vector< QTCluster * > > & element_mapping)
   {
     // find the best cluster:
-    list<QTCluster>::iterator best = clustering.begin();
-    while (best->isInvalid() && best != clustering.end()) {best++;}
-    for (list<QTCluster>::iterator it = best;
-         it != clustering.end(); ++it)
-    {
-      if (!it->isInvalid())
-      {
-        if (it->getQuality() > best->getQuality())
-        {
-          best = it;
-        }
-      }
-    }
+    list<QTCluster>::iterator best = std::max_element(clustering.begin(), clustering.end());
 
     if (best == clustering.end() || best->isInvalid())
     {

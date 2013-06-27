@@ -136,7 +136,7 @@ namespace OpenMS
     Size size = clustering.size();
 
     // Create a temporary map where we store which GridFeatures are next to which Clusters
-    boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > element_mapping;
+    boost::unordered::unordered_map<GridFeature *, std::vector< QTCluster * > > element_mapping;
     for (list<QTCluster>::iterator it = clustering.begin(); it != clustering.end(); ++it)
     {
       boost::unordered::unordered_map<Size, GridFeature *> elements; // = it->getNeighbors();
@@ -147,7 +147,7 @@ namespace OpenMS
       {
         for (InnerNeighborMap::iterator i_it = n_it->second.begin(); i_it != n_it->second.end(); i_it++)
         {
-          element_mapping[i_it->second].push_back( it );
+          element_mapping[i_it->second].push_back( &(*it) );
         }
       }
     }
@@ -175,8 +175,8 @@ namespace OpenMS
   }
 
   void QTClusterFinder::makeConsensusFeature_(list<QTCluster> & clustering,
-         ConsensusFeature & feature,
-         boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > & element_mapping)
+           ConsensusFeature & feature, boost::unordered::unordered_map<GridFeature *,
+             std::vector< QTCluster * > > & element_mapping)
   {
     // find the best cluster:
 #if 0
@@ -223,17 +223,17 @@ namespace OpenMS
     for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator it = elements.begin();
          it != elements.end(); ++it)
     {
-      for (std::vector< list<QTCluster>::iterator >::iterator 
-            cluster_it  = element_mapping[&(*it->second)].begin();
-            cluster_it != element_mapping[&(*it->second)].end(); ++cluster_it)
+      for (std::vector< QTCluster* >::iterator 
+            cluster  = element_mapping[&(*it->second)].begin();
+            cluster != element_mapping[&(*it->second)].end(); ++cluster)
       {
         // we do not want to update invalid features (saves time and does not
         // recompute the quality)
-        if (!(*cluster_it)->isInvalid())
+        if (!(*cluster)->isInvalid())
         {
-          if (!(*cluster_it)->update(elements))       // cluster is invalid (center point removed):
+          if (!(*cluster)->update(elements))       // cluster is invalid (center point removed):
           {
-            (*cluster_it)->setInvalid();
+            (*cluster)->setInvalid();
           }
         }
       }

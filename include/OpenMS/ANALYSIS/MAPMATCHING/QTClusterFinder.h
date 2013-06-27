@@ -131,10 +131,8 @@ private:
 
     /// Generates a consensus feature from the best cluster and updates the clustering
     void makeConsensusFeature_(std::list<QTCluster> & clustering,
-                               ConsensusFeature & feature,
-         boost::unordered::unordered_map<GridFeature *, std::vector< std::list<QTCluster>::iterator > > & element_mapping
-                               
-                               );
+           ConsensusFeature & feature, boost::unordered::unordered_map<GridFeature *,
+             std::vector< QTCluster * > > & element_mapping);
 
     /// Computes an initial QT clustering of the points in the hash grid
     void computeClustering_(Grid & grid, std::list<QTCluster> & clustering);

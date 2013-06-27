@@ -78,8 +78,6 @@ namespace OpenMS
 
   bool QTCluster::operator<(QTCluster & cluster)
   {
-    if (!this->valid_) {return true;}
-    if (cluster.isInvalid()) {return false;}
     return this->getQuality() < cluster.getQuality();
   }
 

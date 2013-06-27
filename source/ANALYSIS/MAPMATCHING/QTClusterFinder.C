@@ -176,13 +176,13 @@ namespace OpenMS
 
   void QTClusterFinder::makeConsensusFeature_(list<QTCluster> & clustering,
          ConsensusFeature & feature,
-         boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > & element_mapping
-         )
+         boost::unordered::unordered_map<GridFeature *, std::vector< list<QTCluster>::iterator > > & element_mapping)
   {
     // find the best cluster:
 #if 1
     list<QTCluster>::iterator best = clustering.begin();
-    for (list<QTCluster>::iterator it = clustering.begin();
+    while (best->isInvalid() && best != clustering.end()) {best++;}
+    for (list<QTCluster>::iterator it = best;
          it != clustering.end(); ++it)
     {
       if (!it->isInvalid())
@@ -197,17 +197,16 @@ namespace OpenMS
     list<QTCluster>::iterator best = std::max_element(clustering.begin(), clustering.end());
 #endif
 
-    boost::unordered::unordered_map<Size, GridFeature *> elements;
-    best->getElements(elements);
-    // cout << "Elements: " << elements.size() << " with best " << best->getQuality() << " invalid " << best->isInvalid() << endl;
-
-    if (best->isInvalid())
+    if (best == clustering.end() || best->isInvalid())
     {
-      
       // this means we can stop -> clear clustering and return
       clustering.clear();
       return;
     }
+
+    boost::unordered::unordered_map<Size, GridFeature *> elements;
+    best->getElements(elements);
+    // cout << "Elements: " << elements.size() << " with best " << best->getQuality() << " invalid " << best->isInvalid() << endl;
 
     // create consensus feature from best cluster:
     feature.setQuality(best->getQuality());
@@ -219,27 +218,6 @@ namespace OpenMS
     feature.computeConsensus();
 
     best->setInvalid();
-
-#if 0
-    for (list<QTCluster>::iterator it = clustering.begin();
-         it != clustering.end(); it++)
-    {
-      if (!it->isInvalid())
-      {
-        // do not update (and change quality) if it is already invalid
-        if (!it->update(elements))       // cluster is invalid (center point removed):
-        {
-          it->setInvalid();
-        }
-      }
-      /*
-      else
-      {
-        // ++it;
-      }
-      */
-    }
-#else
 
     for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator it = elements.begin();
          it != elements.end(); ++it)
@@ -257,8 +235,6 @@ namespace OpenMS
         }
       }
     }
-
-#endif
   }
 
   void QTClusterFinder::run(const vector<ConsensusMap> & input_maps,

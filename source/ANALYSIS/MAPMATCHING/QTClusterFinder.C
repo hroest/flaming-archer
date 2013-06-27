@@ -222,6 +222,21 @@ namespace OpenMS
 
     best->setInvalid();
 
+#if 1
+    for (list<QTCluster>::iterator it = clustering.begin();
+         it != clustering.end(); it++)
+    {
+      if (!it->update(elements))       // cluster is invalid (center point removed):
+      {
+        it->setInvalid();
+      }
+      else
+      {
+        // ++it;
+      }
+    }
+#endif
+
     for (boost::unordered::unordered_map<Size, GridFeature *>::const_iterator it = elements.begin();
          it != elements.end(); ++it)
     {

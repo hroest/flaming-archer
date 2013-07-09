@@ -49,8 +49,8 @@ namespace OpenMS
       cached to disk using the functions provided in CachedmzML.
     */
     class OPENMS_DLLAPI CachedMzMLConsumer :
+      public CachedmzML,
       public Interfaces::IMSDataConsumer
-      public CachedmzML 
     {
       typedef MSExperiment<> MapType;
       typedef MapType::SpectrumType SpectrumType;
@@ -112,11 +112,11 @@ namespace OpenMS
 
         int magic_number = MAGIC_NUMBER;
         ofs.write((char*)&magic_number, sizeof(magic_number));
-        ofs.write((char*)&spectra_expected, sizeof(exp_size));
-        ofs.write((char*)&chromatograms_expected, sizeof(chrom_size));
+        ofs.write((char*)&spectra_expected, sizeof(spectra_expected));
+        ofs.write((char*)&chromatograms_expected, sizeof(chromatograms_expected));
       }
 
-      void setExperimentalSettings(ExperimentalSettings& exp) {;}
+      void setExperimentalSettings(ExperimentalSettings& /* exp */) {;}
 
     protected:
       std::ofstream ofs;
@@ -126,7 +126,6 @@ namespace OpenMS
       Size chromatograms_expected;
 
     };
-
 
 } //end namespace OpenMS
 

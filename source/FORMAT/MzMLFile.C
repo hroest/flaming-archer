@@ -66,7 +66,7 @@ namespace OpenMS
       options_ = options;
   }
 
-  void MzMLFile::transform(const String& filename_in, /* const String& filename_out,  */Interfaces::IMSDataConsumer * consumer/* , const MapType& map */)
+  void MzMLFile::transform(const String& filename_in, /* const String& filename_out,  */Interfaces::IMSDataConsumer<> * consumer/* , const MapType& map */)
   {
     typedef MSExperiment<> MapType;
 

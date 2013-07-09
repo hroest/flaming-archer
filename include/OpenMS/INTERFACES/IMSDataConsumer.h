@@ -53,12 +53,13 @@ namespace Interfaces
     /**
       @brief The interface of a consumer of spectra
     */
+    template <typename PeakT = Peak1D>
     class OPENMS_DLLAPI IMSDataConsumer
     {
     public:
-      typedef MSExperiment<> MapType;
-      typedef MapType::SpectrumType SpectrumType;
-      typedef MapType::ChromatogramType ChromatogramType;
+      typedef MSExperiment<PeakT> MapType;
+      typedef typename MapType::SpectrumType SpectrumType;
+      typedef typename MapType::ChromatogramType ChromatogramType;
 
       // IMSDataConsumer() = 0;
       virtual ~IMSDataConsumer() {};

@@ -1,0 +1,672 @@
+// --------------------------------------------------------------------------
+//                   OpenMS -- Open-Source Mass Spectrometry               
+// --------------------------------------------------------------------------
+// Copyright The OpenMS Team -- Eberhard Karls University Tuebingen,
+// ETH Zurich, and Freie Universitaet Berlin 2002-2013.
+// 
+// This software is released under a three-clause BSD license:
+//  * Redistributions of source code must retain the above copyright
+//    notice, this list of conditions and the following disclaimer.
+//  * Redistributions in binary form must reproduce the above copyright
+//    notice, this list of conditions and the following disclaimer in the
+//    documentation and/or other materials provided with the distribution.
+//  * Neither the name of any author or any participating institution 
+//    may be used to endorse or promote products derived from this software 
+//    without specific prior written permission.
+// For a full list of authors, refer to the file AUTHORS. 
+// --------------------------------------------------------------------------
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL ANY OF THE AUTHORS OR THE CONTRIBUTING 
+// INSTITUTIONS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; 
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
+// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// --------------------------------------------------------------------------
+// $Maintainer: Hannes Roest $
+// $Authors: Hannes Roest $
+// --------------------------------------------------------------------------
+
+#include <OpenMS/APPLICATIONS/TOPPBase.h>
+#include <OpenMS/CONCEPT/Exception.h>
+#include <OpenMS/CONCEPT/ProgressLogger.h>
+
+#include <OpenMS/ANALYSIS/OPENSWATH/CachedmzML.h>
+
+// files
+#include <OpenMS/FORMAT/TraMLFile.h>
+// #include <OpenMS/FORMAT/CachedMzMLFile.h>
+#include <OpenMS/FORMAT/DATAACCESS/MSDataCachedConsumer.h>
+#include <OpenMS/FORMAT/MzMLFile.h>
+#include <OpenMS/FORMAT/TransformationXMLFile.h>
+
+// helpers
+#include <OpenMS/ANALYSIS/OPENSWATH/OpenSwathHelper.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/DATAACCESS/DataAccessHelper.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/DATAACCESS/SimpleOpenMSSpectraAccessFactory.h>
+
+// interfaces
+#include <OpenMS/ANALYSIS/OPENSWATH/OPENSWATHALGO/DATAACCESS/ISpectrumAccess.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/OPENSWATHALGO/DATAACCESS/DataStructures.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/DATAACCESS/SpectrumAccessOpenMS.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/DATAACCESS/SpectrumAccessOpenMSCached.h>
+
+// algos
+#include <OpenMS/ANALYSIS/OPENSWATH/MRMRTNormalizer.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/ChromatogramExtractor.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/MRMFeatureFinderScoring.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/MRMTransitionGroupPicker.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/PeakPickerMRM.h>
+
+#include <OpenMS/CONCEPT/ProgressLogger.h>
+
+using namespace std;
+using namespace OpenMS;
+
+#ifdef _OPENMP
+  #define IF_MASTERTHREAD if (omp_get_thread_num() ==0)  
+#else
+  #define IF_MASTERTHREAD 
+#endif    
+
+namespace OpenMS 
+{
+
+  class OPENMS_DLLAPI SwathMapLoader :
+    public ProgressLogger
+  {
+    public:
+    struct SwathMap
+    {
+        OpenSwath::SpectrumAccessPtr sptr;
+        double lower;
+        double upper;
+        bool ms1;
+    };
+
+    /// Cache a file to disk
+    OpenSwath::SpectrumAccessPtr doCacheFile(String in, String tmp, String tmp_fname, 
+        boost::shared_ptr<MSExperiment<Peak1D> > experiment_metadata )
+    {
+      String cached_file = tmp + tmp_fname + ".cached";
+      String meta_file = tmp + tmp_fname;
+
+      // Create new consumer, transform infile, write out metadata
+      CachedMzMLConsumer cachedConsumer(cached_file, true);
+      MzMLFile().transform(in, &cachedConsumer, *experiment_metadata.get());
+      CachedmzML().writeMetadata(*experiment_metadata.get(), meta_file, true);
+
+      boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
+      MzMLFile().load(meta_file, *exp.get());
+      return SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
+  }
+
+    std::vector< SwathMap > load_files(StringList file_list, String tmp, bool cacheFiles=false)
+    {
+      int progress = 0;
+      startProgress(0, file_list.size(), "Loading data");
+
+      std::vector< SwathMap > swath_maps;
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+      for (SignedSize i = 0; i < boost::numeric_cast<SignedSize>(file_list.size()); ++i)
+      {
+        std::cout << "Loading file " << file_list[i] << std::endl;
+        String tmp_fname = "openswath_tmpfile_" + String(i) + ".mzML";
+
+        boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
+        OpenSwath::SpectrumAccessPtr spectra_ptr;
+
+        if (cacheFiles)
+        {
+          // Cache and load the exp (metadata only) file again
+          spectra_ptr = doCacheFile(file_list[i], tmp, tmp_fname, exp);
+        }
+        else
+        {
+          // ownership is transferred to AccessPtr
+          MzMLFile().load(file_list[i], *exp.get());
+          spectra_ptr = SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
+        }
+
+        SwathMap swath_map;
+
+        bool ms1 = false;
+        double upper = -1, lower = -1;
+        if (exp->size() == 0)
+        {
+          std::cerr << "WARNING: File " << file_list[i] << "\n does not have any scans - I will skip it" << std::endl;
+          continue;
+        }
+        if (exp->getSpectra()[0].getPrecursors().size() == 0)
+        {
+          std::cout << "NOTE: File " << file_list[i] << "\n does not have any precursors - I will assume it is the MS1 scan." << std::endl;
+          ms1 = true;
+        }
+        else
+        {
+          // Checks that this is really a SWATH map and extracts upper/lower window
+          OpenSwathHelper::checkSwathMap(*exp.get(), lower, upper);
+        }
+
+        swath_map.sptr = spectra_ptr;
+        swath_map.lower = lower;
+        swath_map.upper = upper;
+        swath_map.ms1 = ms1;
+#ifdef _OPENMP
+#pragma omp critical (load_files)
+#endif
+        {
+          swath_maps.push_back( swath_map );
+          setProgress(progress++);
+        }
+      }
+      endProgress();
+      return swath_maps;
+    }
+  };
+
+    void selectChrom_(const MSChromatogram<ChromatogramPeak>& chromatogram_old, 
+      MSSpectrum<ChromatogramPeak>& chromatogram, double rt_extraction_window, double center_rt)
+    {
+      double rt_max = center_rt + rt_extraction_window;
+      double rt_min = center_rt - rt_extraction_window;
+      for (MSChromatogram<ChromatogramPeak>::const_iterator it = chromatogram_old.begin(); it != chromatogram_old.end(); ++it)
+      {
+        if (rt_extraction_window >= 0 && (it->getRT() < rt_min || it->getRT() > rt_max))
+        {
+          continue;
+        }
+        ChromatogramPeak peak;
+        peak.setMZ(it->getRT());
+        peak.setIntensity(it->getIntensity());
+        chromatogram.push_back(peak);
+      }
+      if (chromatogram.empty())
+      {
+        std::cerr << "Error: Could not find any points for chromatogram " + chromatogram.getNativeID() + \
+        ". Maybe your retention time transformation is off?" << std::endl;
+      }
+  }
+
+  // TODO shared code!! -> OpenSwathRTNormalizer...
+  void simple_find_best_feature(OpenMS::MRMFeatureFinderScoring::TransitionGroupMapType & transition_group_map, 
+      std::vector<std::pair<double, double> > & pairs, std::map<OpenMS::String, double> PeptideRTMap)
+  {
+    for (OpenMS::MRMFeatureFinderScoring::TransitionGroupMapType::iterator trgroup_it = transition_group_map.begin();
+        trgroup_it != transition_group_map.end(); trgroup_it++)
+    {
+      // we need at least one feature to find the best one
+      OpenMS::MRMFeatureFinderScoring::MRMTransitionGroupType * transition_group = &trgroup_it->second;
+      if (transition_group->getFeatures().size() == 0)
+      {
+        throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+            "RT normalization: did not find any features for group " + transition_group->getTransitionGroupID());
+      }
+
+      // Find the feature with the highest score
+      double bestRT = -1;
+      double highest_score = -1000;
+      for (std::vector<MRMFeature>::iterator mrmfeature = transition_group->getFeaturesMuteable().begin();
+           mrmfeature != transition_group->getFeaturesMuteable().end(); mrmfeature++)
+      {
+        if (mrmfeature->getOverallQuality() > highest_score)
+        {
+          bestRT = mrmfeature->getRT();
+          highest_score = mrmfeature->getOverallQuality();
+        }
+      }
+      String pepref = trgroup_it->second.getTransitions()[0].getPeptideRef();
+      pairs.push_back(std::make_pair(bestRT, PeptideRTMap[pepref]));
+    }
+  }
+}
+
+//-------------------------------------------------------------
+//Doxygen docu
+//-------------------------------------------------------------
+
+/**
+  @page TOPP_OpenSwathWorkflow Workflow
+
+  @brief Complete workflow to run OpenSWATH
+
+*/
+
+// We do not want this class to show up in the docu:
+/// @cond TOPPCLASSES
+class TOPPOpenSwathWorkflow 
+  : public TOPPBase
+{
+public:
+
+  TOPPOpenSwathWorkflow() 
+    : TOPPBase("OpenSwathWorkflow", "Complete workflow to run OpenSWATH", true)
+  {
+  }
+
+protected:
+
+    typedef MSSpectrum<ChromatogramPeak> RichPeakChromatogram; // this is the type in which we store the chromatograms for this analysis
+    typedef OpenSwath::LightTransition TransitionType;
+    typedef SwathMapLoader::SwathMap SwathMap;
+    typedef OpenSwath::LightTargetedExperiment TargetedExpType;
+    typedef OpenSwath::LightPeptide PeptideType;
+    typedef OpenSwath::LightProtein ProteinType;
+    typedef OpenSwath::LightModification ModificationType;
+    typedef MRMTransitionGroup<MSSpectrum <ChromatogramPeak>, TransitionType> MRMTransitionGroupType; // a transition group holds the MSSpectra with the Chromatogram peaks from above
+    typedef std::map<String, MRMTransitionGroupType> TransitionGroupMapType;
+
+  void scoreAll_(OpenSwath::SpectrumAccessPtr input,
+         OpenSwath::SpectrumAccessPtr swath_map,
+         TargetedExpType& transition_exp, 
+         TransformationDescription trafo, double rt_extraction_window, 
+         FeatureMap<Feature>& output, Param& feature_finder_param)
+  {
+    double expected_rt;
+    TransformationDescription trafo_inv = trafo;
+    trafo_inv.invert();
+
+    MRMFeatureFinderScoring featureFinder;
+    MRMTransitionGroupPicker trgroup_picker;
+
+    trgroup_picker.setParameters(feature_finder_param.copy("TransitionGroupPicker:", true));
+    featureFinder.setParameters(feature_finder_param);
+    featureFinder.prepareProteinPeptideMaps_(transition_exp);
+
+    std::map<String, int> chromatogram_map;
+    //Size nr_chromatograms = input->getNrChromatograms();
+    for (Size i = 0; i < input->getNrChromatograms(); i++)
+    {
+      chromatogram_map[input->getChromatogramNativeID(i)] = boost::numeric_cast<int>(i);
+    }
+
+    // map peptides
+    std::map<String, int> assay_peptide_map;
+    for (Size i = 0; i < transition_exp.getPeptides().size(); i++)
+    {
+      // Map peptide id
+      assay_peptide_map[transition_exp.getPeptides()[i].id] = boost::numeric_cast<int>(i);
+    }
+
+    // Group transitions
+    typedef std::map<String, std::vector< const TransitionType* > > AssayMapT;
+    AssayMapT assay_map;
+    for (Size i = 0; i < transition_exp.getTransitions().size(); i++)
+    {
+      assay_map[transition_exp.getTransitions()[i].getPeptideRef()].push_back(&transition_exp.getTransitions()[i]);
+    }
+
+    // Iterating over all the assays
+    for (AssayMapT::iterator assay_it = assay_map.begin(); assay_it != assay_map.end(); assay_it++)
+    {
+      String id = assay_it->first;
+
+      // Create new transition group if there is none for this peptide
+      MRMTransitionGroupType transition_group;
+      transition_group.setTransitionGroupID(id);
+
+      expected_rt = transition_exp.getPeptides()[ assay_peptide_map[id] ].rt;
+
+      // Go through all transitions
+      for (Size i = 0; i < assay_it->second.size(); i++)
+      {
+        const TransitionType* transition = assay_it->second[i];
+
+        if (chromatogram_map.find(transition->getNativeID()) == chromatogram_map.end() )
+        {
+          throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+              "Error, did not find chromaotgram for transitions" + transition->getNativeID() );
+        }
+
+        OpenSwath::ChromatogramPtr cptr = input->getChromatogramById(chromatogram_map[transition->getNativeID()]);
+        MSChromatogram<ChromatogramPeak> chromatogram_old;
+        OpenSwathDataAccessHelper::convertToOpenMSChromatogram(chromatogram_old, cptr);
+        RichPeakChromatogram chromatogram;
+
+        // expected_rt = PeptideRefMap_[transition->getPeptideRef()]->rt;
+        chromatogram.setMetaValue("product_mz", transition->getProductMZ());
+        chromatogram.setMetaValue("precursor_mz", transition->getPrecursorMZ());
+        chromatogram.setNativeID(transition->getNativeID());
+        double de_normalized_experimental_rt = trafo_inv.apply(expected_rt);
+        selectChrom_(chromatogram_old, chromatogram, rt_extraction_window, de_normalized_experimental_rt);
+
+        // Now add the transition and the chromatogram to the group
+        transition_group.addTransition(*transition, transition->getNativeID());
+        transition_group.addChromatogram(chromatogram, chromatogram.getNativeID());
+      }
+
+      // Process the transition_group
+      trgroup_picker.pickTransitionGroup(transition_group);
+      featureFinder.scorePeakgroups(transition_group, trafo, swath_map, output);
+    }
+  }
+      
+  TransformationDescription RTNormalization(TargetedExperiment transition_exp_,
+          std::vector< OpenMS::MSChromatogram<> > chromatograms, double min_rsq, double min_coverage, 
+          Param& feature_finder_param)
+  {
+    ProgressLogger progresslogger;
+    progresslogger.setLogType(log_type_);
+    int progress = 0;
+    progresslogger.startProgress(0, 1, "Retention time normalization");
+
+    OpenSwath::LightTargetedExperiment targeted_exp;
+    OpenSwathDataAccessHelper::convertTargetedExp(transition_exp_, targeted_exp);
+
+    std::vector<std::pair<double, double> > pairs; // store the RT pairs to write the output trafoXML
+
+    // Store the peptide retention times in an intermediate map
+    std::map<OpenMS::String, double> PeptideRTMap;
+    for (Size i = 0; i < targeted_exp.getPeptides().size(); i++)
+    {
+      PeptideRTMap[targeted_exp.getPeptides()[i].id] = targeted_exp.getPeptides()[i].rt; 
+    }
+
+    OpenSwath::LightTargetedExperiment transition_exp_used = targeted_exp;
+
+    MRMFeatureFinderScoring featureFinder;
+    feature_finder_param.setValue("Scores:use_rt_score", "false");
+    feature_finder_param.setValue("Scores:use_elution_model_score", "false");
+    feature_finder_param.setValue("Scores:use_elution_model_score", "false");
+    feature_finder_param.setValue("rt_extraction_window", -1.0);
+    featureFinder.setParameters(feature_finder_param);
+    
+    FeatureMap<> featureFile; // also for results
+    OpenMS::MRMFeatureFinderScoring::TransitionGroupMapType transition_group_map; // for results
+    boost::shared_ptr<MSExperiment<Peak1D> > swath_map(new MSExperiment<Peak1D>);
+    OpenSwath::SpectrumAccessPtr swath_ptr = SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(swath_map);
+
+    boost::shared_ptr<MSExperiment<Peak1D> > xic_map(new MSExperiment<Peak1D>); // the map with the extracted ion chromatograms
+    xic_map->setChromatograms(chromatograms);
+    OpenSwath::SpectrumAccessPtr chromatogram_ptr = OpenSwath::SpectrumAccessPtr(new OpenMS::SpectrumAccessOpenMS(xic_map));
+    TransformationDescription empty_trafo;
+
+    featureFinder.setStrictFlag(false); // TODO remove this, it should be strict (e.g. all transitions need to be present for RT norm)
+    featureFinder.pickExperiment(chromatogram_ptr, featureFile, transition_exp_used, empty_trafo, swath_ptr, transition_group_map);
+
+    // find best feature, compute pairs of iRT and real RT
+    simple_find_best_feature(transition_group_map, pairs, PeptideRTMap);
+
+    std::vector<std::pair<double, double> > pairs_corrected;
+    pairs_corrected = MRMRTNormalizer::rm_outliers(pairs, min_rsq, min_coverage);
+
+    // store transformation, using a linear model as default
+    TransformationDescription trafo_out;
+    trafo_out.setDataPoints(pairs_corrected);
+    Param model_params;
+    model_params.setValue("symmetric_regression", "false");
+    String model_type = "linear";
+    trafo_out.fitModel(model_type, model_params);
+
+    progresslogger.endProgress();
+    return trafo_out;
+  }
+
+   struct ChromExtractParams 
+   {
+     double min_upper_edge_dist;
+     double extraction_window;
+     bool ppm; 
+     double rt_extraction_window; 
+     String extraction_function;
+   };
+    
+  void simpleExtractChromatograms(const std::vector< SwathMap > & swath_maps,
+    const OpenMS::TargetedExperiment & irt_transitions, 
+    std::vector< OpenMS::MSChromatogram<> > & chromatograms, ChromExtractParams cp)
+  {
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+    for(Size i = 0; i < swath_maps.size(); i++)
+    {
+      if (swath_maps[i].ms1) {continue;}
+      TargetedExperiment transition_exp_used;
+      OpenSwathHelper::selectSwathTransitions(irt_transitions, transition_exp_used,
+          cp.min_upper_edge_dist, swath_maps[i].lower, swath_maps[i].upper);
+      if (transition_exp_used.getTransitions().size() == 0) { continue;}
+
+      MSExperiment<> tmp_out;
+      ChromatogramExtractor().extractChromatograms(swath_maps[i].sptr, tmp_out, transition_exp_used, cp.extraction_window,
+          cp.ppm, TransformationDescription(), cp.rt_extraction_window, cp.extraction_function);
+#ifdef _OPENMP
+#pragma omp critical (featureFinder)
+#endif
+      {
+        chromatograms.reserve(chromatograms.size() + distance(tmp_out.getChromatograms().begin(),tmp_out.getChromatograms().end()));
+        chromatograms.insert(chromatograms.end(), tmp_out.getChromatograms().begin(), tmp_out.getChromatograms().end());
+      }
+    }
+  }
+
+  void extractAndScore(const std::vector< SwathMap > & swath_maps,
+    const TransformationDescription trafo,
+    ChromExtractParams cp, String tr_file, String out, 
+    Param& feature_finder_param)
+  {
+    ProgressLogger progresslogger;
+    progresslogger.setLogType(log_type_);
+    int progress = 0;
+    progresslogger.startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
+
+    // OpenSwath::LightTargetedExperiment transition_exp;
+    TargetedExperiment transition_exp;
+    {
+      // TargetedExperiment *transition_exp__ = new TargetedExperiment();
+      // TargetedExperiment &transition_exp_ = *transition_exp__;
+      {
+        TraMLFile *t = new TraMLFile;
+        t->load(tr_file, transition_exp);
+        delete t;
+      }
+      // OpenSwathDataAccessHelper::convertTargetedExp(transition_exp_, transition_exp);
+      // delete transition_exp__;
+    }
+
+    FeatureMap<> out_featureFile;
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+    for(Size i = 0; i < swath_maps.size(); i++)
+    {
+      if (swath_maps[i].ms1) {continue;}
+
+      // Step 1: select transitions
+      TargetedExperiment transition_exp_used;
+      OpenSwathHelper::selectSwathTransitions(transition_exp, transition_exp_used,
+          cp.min_upper_edge_dist, swath_maps[i].lower, swath_maps[i].upper);
+      if (transition_exp_used.getTransitions().size() == 0) { continue;}
+
+      // Step 2: extract these transitions
+      ChromatogramExtractor extractor;
+      boost::shared_ptr<MSExperiment<Peak1D> > chrom_tmp(new MSExperiment<Peak1D>);
+      extractor.extractChromatograms(swath_maps[i].sptr, *chrom_tmp.get(), transition_exp_used,
+          cp.extraction_window, cp.ppm, trafo, cp.rt_extraction_window, cp.extraction_function);
+
+      // Convert to LightTargetedExperiment as FeatureFinder requests and convert chroms to ptr
+      OpenSwath::LightTargetedExperiment light_transition_exp_used;
+      OpenSwathDataAccessHelper::convertTargetedExp(transition_exp_used, light_transition_exp_used);
+      OpenSwath::SpectrumAccessPtr chromatogram_ptr = OpenSwath::SpectrumAccessPtr(new OpenMS::SpectrumAccessOpenMS(chrom_tmp));
+
+      // Step 3: score these extracted transitions
+      FeatureMap<> featureFile;
+      scoreAll_(chromatogram_ptr, swath_maps[i].sptr, light_transition_exp_used, trafo, cp.rt_extraction_window, featureFile, feature_finder_param);
+
+      // write all features and the protein identifications from tmp_featureFile into featureFile
+#ifdef _OPENMP
+#pragma omp critical (featureFinder)
+#endif
+      {
+        for (FeatureMap<Feature>::iterator feature_it = featureFile.begin();
+             feature_it != featureFile.end(); feature_it++)
+        {
+          out_featureFile.push_back(*feature_it);
+        }
+        for (std::vector<ProteinIdentification>::iterator protid_it =
+               featureFile.getProteinIdentifications().begin();
+             protid_it != featureFile.getProteinIdentifications().end();
+             protid_it++)
+        {
+          out_featureFile.getProteinIdentifications().push_back(*protid_it);
+        }
+        progresslogger.setProgress(progress++);
+      }
+
+    }
+    addDataProcessing_(out_featureFile, getProcessingInfo_(DataProcessing::QUANTITATION));
+    out_featureFile.ensureUniqueId();
+    FeatureXMLFile().store(out, out_featureFile);
+    progresslogger.endProgress();
+  }
+
+  void registerOptionsAndFlags_()
+  {
+    registerInputFileList_("in", "<files>", StringList(), "Input files separated by blank");
+    setValidFormats_("in", StringList::create("mzML"));
+
+    registerInputFile_("tr_irt", "<file>", "", "transition file ('TraML' or 'csv')");
+    setValidFormats_("tr_irt", StringList::create("csv,traML"));
+
+    registerInputFile_("tr", "<file>", "", "transition file ('TraML' or 'csv')");
+    setValidFormats_("tr", StringList::create("csv,traML"));
+
+    /*
+    registerInputFile_("rt_norm", "<file>", "", "RT normalization file (how to map the RTs of this run to the ones stored in the library)", false);
+    setValidFormats_("rt_norm", StringList::create("trafoXML"));
+    */
+
+    registerOutputFile_("out", "<file>", "", "output file");
+    setValidFormats_("out", StringList::create("featureXML"));
+
+
+    registerDoubleOption_("min_upper_edge_dist", "<double>", 0.0, "Minimal distance to the edge to still consider a precursor, in Thomson", false);
+    registerDoubleOption_("extraction_window", "<double>", 0.05, "Extraction window used (in Thomson, to use ppm see -ppm flag)", false);
+    registerDoubleOption_("rt_extraction_window", "<double>", -1, "Only extract RT around this value (-1 means extract over the whole range, a value of 500 means to extract around +/- 500 s of the expected elution).", false);
+    setMinFloat_("extraction_window", 0.0);
+
+    registerDoubleOption_("min_rsq", "<double>", 0.95, "Minimum r-squared of RT peptides regression", false);
+    registerDoubleOption_("min_coverage", "<double>", 0.6, "Minimum relative amount of RT peptides to keep", false);
+
+    registerFlag_("is_swath", "Set this flag if the data is SWATH data");
+    registerFlag_("ppm", "extraction_window is in ppm");
+
+    registerFlag_("cacheFiles", "Whether to cache files on disk");
+
+    registerStringOption_("extraction_function", "<name>", "tophat", "Function used to extract the signal", false);
+    setValidStrings_("extraction_function", StringList::create("tophat,bartlett"));
+
+    registerSubsection_("Scoring", "Scoring parameters section");
+  }
+
+  Param getSubsectionDefaults_(const String & name) const
+  {
+    if (name == "Scoring")
+    {
+      // set sensible default parameters
+      Param feature_finder_param = MRMFeatureFinderScoring().getDefaults();
+      feature_finder_param.setValue("rt_extraction_window", 300.0); // 10 minutes (+/- 5 minutes)
+      feature_finder_param.setValue("rt_normalization_factor", 100.0);
+
+      feature_finder_param.setValue("TransitionGroupPicker:min_peak_width", 12.0);
+      feature_finder_param.setValue("TransitionGroupPicker:recalculate_peaks", "true");
+      feature_finder_param.setValue("TransitionGroupPicker:compute_peak_quality", "true");
+      feature_finder_param.setValue("TransitionGroupPicker:minimal_quality", -1.5);
+      feature_finder_param.remove("TransitionGroupPicker:background_subtraction");
+      feature_finder_param.remove("TransitionGroupPicker:stop_after_intensity_ratio");
+
+      // Peak Picker
+      feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:use_gauss", "false");
+      feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:sgolay_polynomial_order", 3);
+      feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:sgolay_frame_length", 9);
+      feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:peak_width", -1.0);
+      feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:remove_overlapping_peaks", "true");
+      feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:method", "corrected");
+      feature_finder_param.remove("TransitionGroupPicker:PeakPickerMRM:gauss_width");
+      feature_finder_param.remove("TransitionGroupPicker:PeakPickerMRM:sn_win_len");
+      feature_finder_param.remove("TransitionGroupPicker:PeakPickerMRM:sn_bin_count");
+
+      // EMG Scoring
+      feature_finder_param.setValue("EMGScoring:max_iteration", 10);
+      feature_finder_param.setValue("EMGScoring:deltaRelError", 0.1);
+      feature_finder_param.remove("EMGScoring:interpolation_step");
+      feature_finder_param.remove("EMGScoring:tolerance_stdev_bounding_box");
+      feature_finder_param.remove("EMGScoring:deltaAbsError");
+         
+      // remove these params
+      feature_finder_param.remove("stop_report_after_feature");
+      feature_finder_param.remove("add_up_spectra");
+      feature_finder_param.remove("spacing_for_spectra_resampling");
+      feature_finder_param.remove("EMGScoring:statistics:mean");
+      feature_finder_param.remove("EMGScoring:statistics:variance");
+      return feature_finder_param;
+    }
+  }
+
+  ExitCodes main_(int, const char **)
+  {
+    StringList file_list = getStringList_("in");
+    String irt_tr_file = getStringOption_("tr_irt");
+    String tr_file = getStringOption_("tr");
+    String out = getStringOption_("out");
+    bool ppm = getFlag_("ppm");
+    DoubleReal min_upper_edge_dist = getDoubleOption_("min_upper_edge_dist");
+    DoubleReal extraction_window = getDoubleOption_("extraction_window");
+    DoubleReal rt_extraction_window = getDoubleOption_("rt_extraction_window");
+    String extraction_function = getStringOption_("extraction_function");
+    bool cacheFiles = getFlag_("cacheFiles");
+
+    String tmp = "/tmp/";
+    double irt_extraction_window = -1;
+
+    ChromExtractParams cp;
+    cp.min_upper_edge_dist   = min_upper_edge_dist;
+    cp.extraction_window     = extraction_window;
+    cp.ppm                   = ppm;
+    cp.rt_extraction_window  = rt_extraction_window, 
+    cp.extraction_function   = extraction_function;
+
+    ChromExtractParams cp_irt = cp;
+    cp_irt.rt_extraction_window = irt_extraction_window;
+
+    // Load the SWATH files
+    SwathMapLoader sml;
+    sml.setLogType(log_type_);
+    std::vector< SwathMap > swath_maps = sml.load_files(file_list, tmp, cacheFiles);
+
+
+    // Loading iRT file
+    TraMLFile traml;
+    OpenMS::TargetedExperiment irt_transitions;
+    traml.load(irt_tr_file, irt_transitions);
+
+    // Extracting the iRT file
+    std::vector< OpenMS::MSChromatogram<> > irt_chromatograms;
+    simpleExtractChromatograms(swath_maps, irt_transitions, irt_chromatograms, cp_irt);
+
+    Param feature_finder_param = getParam_().copy("Scoring:", true);
+    DoubleReal min_rsq = getDoubleOption_("min_rsq");
+    DoubleReal min_coverage = getDoubleOption_("min_coverage");
+    TransformationDescription trafo_rtnorm = RTNormalization(irt_transitions,
+            irt_chromatograms, min_rsq, min_coverage, feature_finder_param);
+
+    extractAndScore(swath_maps, trafo_rtnorm, cp, tr_file, out, feature_finder_param);
+
+    return EXECUTION_OK;
+  }
+
+};
+
+int main(int argc, const char ** argv)
+{
+  TOPPOpenSwathWorkflow tool;
+  return tool.main(argc, argv);
+}
+
+/// @endcond

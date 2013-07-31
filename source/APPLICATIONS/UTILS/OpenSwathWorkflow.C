@@ -73,6 +73,8 @@
 using namespace std;
 using namespace OpenMS;
 
+#define DEBUG_OPENSWATHWORKFLOW
+
 #ifdef _OPENMP
   #define IF_MASTERTHREAD if (omp_get_thread_num() ==0)  
 #else
@@ -544,7 +546,11 @@ protected:
     int progress = 0;
     progresslogger.startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
 
+    // Load the OpenMS TransitionExperiment (since ChromExtractor wants an old TransitionExp)
     // OpenSwath::LightTargetedExperiment transition_exp;
+#ifdef DEBUG_OPENSWATHWORKFLOW
+    std::cout << " Loading TraML file " << std::endl;
+#endif
     TargetedExperiment transition_exp;
     {
       // TargetedExperiment *transition_exp__ = new TargetedExperiment();
@@ -734,10 +740,16 @@ protected:
     TraMLFile traml;
     OpenMS::TargetedExperiment irt_transitions;
     traml.load(irt_tr_file, irt_transitions);
+#ifdef DEBUG_OPENSWATHWORKFLOW
+    std::cout << "Loaded iRT files" << std::endl;
+#endif
 
     // Extracting the iRT file
     std::vector< OpenMS::MSChromatogram<> > irt_chromatograms;
     simpleExtractChromatograms(swath_maps, irt_transitions, irt_chromatograms, cp_irt);
+#ifdef DEBUG_OPENSWATHWORKFLOW
+    std::cout << "Extracted iRT files" << std::endl;
+#endif
 
     Param feature_finder_param = getParam_().copy("Scoring:", true);
     DoubleReal min_rsq = getDoubleOption_("min_rsq");

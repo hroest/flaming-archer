@@ -42,6 +42,7 @@
 #include <OpenMS/FORMAT/TraMLFile.h>
 // #include <OpenMS/FORMAT/CachedMzMLFile.h>
 #include <OpenMS/FORMAT/DATAACCESS/MSDataCachedConsumer.h>
+#include <OpenMS/FORMAT/DATAACCESS/MSDataTransformingConsumer.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
 #include <OpenMS/FORMAT/TransformationXMLFile.h>
 
@@ -65,6 +66,10 @@
 
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 
+#include <OpenMS/TRANSFORMATIONS/RAW2PEAK/PeakPickerHiRes.h>
+#include <OpenMS/TRANSFORMATIONS/RAW2PEAK/PeakPickerIterative.h>
+#include <OpenMS/FILTERING/SMOOTHING/GaussFilter.h>
+
 using namespace std;
 using namespace OpenMS;
 
@@ -76,6 +81,46 @@ using namespace OpenMS;
 
 namespace OpenMS 
 {
+
+  class OPENMS_DLLAPI DataReducer :
+    public MSDataTransformingConsumer 
+  {
+
+  public:
+    DataReducer(GaussFilter nf, PeakPickerHiRes pp) :
+      pp_(pp), nf_(nf) {}
+
+    void consumeSpectrum(typename MapType::SpectrumType & s)
+    {
+      typename MapType::SpectrumType sout;
+      nf_.filter(s);
+      pp_.pick(s, sout);
+      s = sout;
+    }
+
+    PeakPickerHiRes pp_;
+    GaussFilter nf_;
+  };
+
+  class OPENMS_DLLAPI DataReducerIterative :
+    public MSDataTransformingConsumer 
+  {
+
+  public:
+    DataReducerIterative(GaussFilter nf, PeakPickerIterative pp) :
+      pp_(pp), nf_(nf) {}
+
+    void consumeSpectrum(typename MapType::SpectrumType & s)
+    {
+      typename MapType::SpectrumType sout;
+      nf_.filter(s);
+      pp_.pick(s, sout);
+      s = sout;
+    }
+
+    PeakPickerIterative pp_;
+    GaussFilter nf_;
+  };
 
   class OPENMS_DLLAPI SwathMapLoader :
     public ProgressLogger
@@ -106,7 +151,7 @@ namespace OpenMS
       return SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
   }
 
-    std::vector< SwathMap > load_files(StringList file_list, String tmp, bool cacheFiles=false)
+    std::vector< SwathMap > load_files(StringList file_list, String tmp, String readoptions="normal")
     {
       int progress = 0;
       startProgress(0, file_list.size(), "Loading data");
@@ -123,16 +168,59 @@ namespace OpenMS
         boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
         OpenSwath::SpectrumAccessPtr spectra_ptr;
 
-        if (cacheFiles)
+        if (readoptions == "normal")
+        {
+          MzMLFile().load(file_list[i], *exp.get());
+          spectra_ptr = SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
+        }
+        else if (readoptions == "cache")
         {
           // Cache and load the exp (metadata only) file again
           spectra_ptr = doCacheFile(file_list[i], tmp, tmp_fname, exp);
         }
+        else if (readoptions == "reduce")
+        {
+          GaussFilter gf;
+          PeakPickerHiRes pp;
+
+          Param p = gf.getParameters();
+          p.setValue("use_ppm_tolerance", "true");
+          p.setValue("ppm_tolerance", 50.0);
+          gf.setParameters(p);
+
+          // using the consumer to reduce the input data
+          DataReducer dataConsumer(gf, pp);
+          MzMLFile().transform(file_list[i], &dataConsumer, *exp.get());
+          // ownership is transferred to AccessPtr
+          spectra_ptr = SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
+        }
+        else if (readoptions == "reduce_iterative")
+        {
+          GaussFilter gf;
+          PeakPickerIterative pp;
+
+          Param p = gf.getParameters();
+          p.setValue("use_ppm_tolerance", "true");
+          p.setValue("ppm_tolerance", 10.0);
+          gf.setParameters(p);
+
+          p = pp.getParameters();
+          p.setValue("peak_width", 0.04);
+          p.setValue("spacing_difference", 2.5);
+          p.setValue("signal_to_noise_", 0.0);
+          p.setValue("check_width_internally", "true");
+          pp.setParameters(p);
+
+          // using the consumer to reduce the input data
+          DataReducerIterative dataConsumer(gf, pp);
+          MzMLFile().transform(file_list[i], &dataConsumer, *exp.get());
+          // ownership is transferred to AccessPtr
+          spectra_ptr = SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
+        }
         else
         {
-          // ownership is transferred to AccessPtr
-          MzMLFile().load(file_list[i], *exp.get());
-          spectra_ptr = SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
+          throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+              "Unknown option " + readoptions);
         }
 
         SwathMap swath_map;
@@ -557,7 +645,8 @@ protected:
     registerFlag_("is_swath", "Set this flag if the data is SWATH data");
     registerFlag_("ppm", "extraction_window is in ppm");
 
-    registerFlag_("cacheFiles", "Whether to cache files on disk");
+    registerStringOption_("readOptions", "<name>", "normal", "Whether to run OpenSWATH directly on the input data, cache data to disk first or to perform a datareduction step first", false);
+    setValidStrings_("readOptions", StringList::create("normal,cache,reduce,reduce_iterative"));
 
     registerStringOption_("extraction_function", "<name>", "tophat", "Function used to extract the signal", false);
     setValidStrings_("extraction_function", StringList::create("tophat,bartlett"));
@@ -620,7 +709,8 @@ protected:
     DoubleReal extraction_window = getDoubleOption_("extraction_window");
     DoubleReal rt_extraction_window = getDoubleOption_("rt_extraction_window");
     String extraction_function = getStringOption_("extraction_function");
-    bool cacheFiles = getFlag_("cacheFiles");
+
+    String readoptions = getStringOption_("readOptions");
 
     String tmp = "/tmp/";
     double irt_extraction_window = -1;
@@ -638,8 +728,7 @@ protected:
     // Load the SWATH files
     SwathMapLoader sml;
     sml.setLogType(log_type_);
-    std::vector< SwathMap > swath_maps = sml.load_files(file_list, tmp, cacheFiles);
-
+    std::vector< SwathMap > swath_maps = sml.load_files(file_list, tmp, readoptions);
 
     // Loading iRT file
     TraMLFile traml;

@@ -211,6 +211,7 @@ namespace OpenMS
           p.setValue("spacing_difference", 2.5);
           p.setValue("signal_to_noise_", 0.0);
           p.setValue("check_width_internally", "true");
+          p.setValue("clear_meta_data", "true");
           pp.setParameters(p);
 
           // using the consumer to reduce the input data

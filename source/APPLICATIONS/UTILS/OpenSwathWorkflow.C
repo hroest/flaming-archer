@@ -356,70 +356,6 @@ protected:
 
     typedef OpenSwath::ChromatogramPtr SmallChromatogram;
     typedef std::map<String, std::vector<const ReactionMonitoringTransition*> > PeptideTransitionMapType;
-    // TODO duplicate code!
-    // prepare the extraction coordinates for extraction
-    void prepare_coordinates(std::vector< SmallChromatogram > & small_chromatograms,
-      std::vector< ChromatogramExtractor::ExtractionCoordinates > & coordinates,
-      OpenMS::TargetedExperiment & transition_exp_used,
-      TransformationDescription trafo, DoubleReal rt_extraction_window, bool ms1)
-    {
-      trafo.invert(); // copy
-
-      // hash of the peptide reference containing all transitions
-      PeptideTransitionMapType peptide_trans_map;
-      for (Size i = 0; i < transition_exp_used.getTransitions().size(); i++)
-      {
-        peptide_trans_map[transition_exp_used.getTransitions()[i].getPeptideRef()].push_back(&transition_exp_used.getTransitions()[i]);
-      }
-
-      Size itersize;
-      if (ms1) {itersize = transition_exp_used.getPeptides().size();}
-      else     {itersize = transition_exp_used.getTransitions().size();}
-
-      for (Size i = 0; i < itersize; i++)
-      {
-        OpenSwath::ChromatogramPtr s(new OpenSwath::Chromatogram);
-        small_chromatograms.push_back(s);
-
-        ChromatogramExtractor::ExtractionCoordinates coord;
-        TargetedExperiment::Peptide pep;
-        OpenMS::ReactionMonitoringTransition transition;
-
-        if (ms1) 
-        {
-          pep = transition_exp_used.getPeptides()[i];
-          transition = (*peptide_trans_map[pep.id][0]);
-          coord.mz = transition.getPrecursorMZ();
-          coord.id = pep.id;
-        }
-        else 
-        {
-          transition = transition_exp_used.getTransitions()[i];
-          pep = transition_exp_used.getPeptideByRef(transition.getPeptideRef()); 
-          coord.mz = transition.getProductMZ();
-          coord.id = transition.getNativeID();
-        }
-
-        if (pep.rts.empty() || pep.rts[0].getCVTerms()["MS:1000896"].empty())
-        {
-          // we dont have retention times -> this is only a problem if we actually
-          // wanted to use the RT limit feature.
-          if (rt_extraction_window >= 0)
-          {
-            throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
-              "Error: Peptide " + pep.id + " does not have normalized retention times (term 1000896) which are necessary to perform an RT-limited extraction");
-          }
-          coord.rt = -1;
-        }
-        else
-        {
-          coord.rt = pep.rts[0].getCVTerms()["MS:1000896"][0].getValue().toString().toDouble();
-          coord.rt = trafo.apply(coord.rt); // apply RT transformation if necessary
-        }
-        coordinates.push_back(coord);
-      }
-      std::sort(coordinates.begin(), coordinates.end(), ChromatogramExtractor::ExtractionCoordinates::SortExtractionCoordinatesByMZ);
-    }
 
   void scoreAll_(OpenSwath::SpectrumAccessPtr input,
          OpenSwath::SpectrumAccessPtr swath_map,
@@ -593,9 +529,9 @@ protected:
 
       std::vector< OpenSwath::ChromatogramPtr > tmp_out;
       std::vector< ChromatogramExtractor::ExtractionCoordinates > coordinates;
-      prepare_coordinates(tmp_out, coordinates, transition_exp_used,  TransformationDescription(), cp.rt_extraction_window, false);
-
-      ChromatogramExtractor().extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
+      ChromatogramExtractor extractor;
+      extractor.prepare_coordinates(tmp_out, coordinates, transition_exp_used,  (cp.rt_extraction_window > 0.0), false);
+      extractor.extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
           cp.ppm, cp.rt_extraction_window, cp.extraction_function);
 #ifdef _OPENMP
 #pragma omp critical (featureFinder)
@@ -617,6 +553,9 @@ protected:
     ChromExtractParams cp, String tr_file, String out, 
     Param& feature_finder_param)
   {
+    TransformationDescription trafo_inverse = trafo;
+    trafo_inverse.invert();
+
     ProgressLogger progresslogger;
     progresslogger.setLogType(log_type_);
     int progress = 0;
@@ -660,14 +599,19 @@ protected:
 
       std::vector< OpenSwath::ChromatogramPtr > tmp_out; // chrom_tmp
       std::vector< ChromatogramExtractor::ExtractionCoordinates > coordinates;
-      prepare_coordinates(tmp_out, coordinates, transition_exp_used, trafo, cp.rt_extraction_window, false);
+
+      extractor.prepare_coordinates(tmp_out, coordinates, transition_exp_used,  (cp.rt_extraction_window > 0.0), false);
+      for (std::vector< ChromatogramExtractor::ExtractionCoordinates >::iterator it = coordinates.begin(); it != coordinates.end(); it++)
+      {
+        it->rt = trafo_inverse.apply(it->rt);
+      }
 
       extractor.extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
           cp.ppm, cp.rt_extraction_window, cp.extraction_function);
 
       std::vector< OpenMS::MSChromatogram<> > chromatograms;
       for (Size j = 0; j < tmp_out.size(); j++)
-      { 
+      {
         OpenMS::MSChromatogram<> chrom;
         OpenSwathDataAccessHelper::convertToOpenMSChromatogram(chrom, tmp_out[j]);
         chrom.setNativeID(coordinates[j].id);

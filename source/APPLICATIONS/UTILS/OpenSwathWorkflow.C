@@ -354,6 +354,73 @@ protected:
     typedef MRMTransitionGroup<MSSpectrum <ChromatogramPeak>, TransitionType> MRMTransitionGroupType; // a transition group holds the MSSpectra with the Chromatogram peaks from above
     typedef std::map<String, MRMTransitionGroupType> TransitionGroupMapType;
 
+    typedef OpenSwath::ChromatogramPtr SmallChromatogram;
+    typedef std::map<String, std::vector<const ReactionMonitoringTransition*> > PeptideTransitionMapType;
+    // TODO duplicate code!
+    // prepare the extraction coordinates for extraction
+    void prepare_coordinates(std::vector< SmallChromatogram > & small_chromatograms,
+      std::vector< ChromatogramExtractor::ExtractionCoordinates > & coordinates,
+      OpenMS::TargetedExperiment & transition_exp_used,
+      TransformationDescription trafo, DoubleReal rt_extraction_window, bool ms1)
+    {
+      trafo.invert(); // copy
+
+      // hash of the peptide reference containing all transitions
+      PeptideTransitionMapType peptide_trans_map;
+      for (Size i = 0; i < transition_exp_used.getTransitions().size(); i++)
+      {
+        peptide_trans_map[transition_exp_used.getTransitions()[i].getPeptideRef()].push_back(&transition_exp_used.getTransitions()[i]);
+      }
+
+      Size itersize;
+      if (ms1) {itersize = transition_exp_used.getPeptides().size();}
+      else     {itersize = transition_exp_used.getTransitions().size();}
+
+      for (Size i = 0; i < itersize; i++)
+      {
+        OpenSwath::ChromatogramPtr s(new OpenSwath::Chromatogram);
+        small_chromatograms.push_back(s);
+
+        ChromatogramExtractor::ExtractionCoordinates coord;
+        TargetedExperiment::Peptide pep;
+        OpenMS::ReactionMonitoringTransition transition;
+
+        if (ms1) 
+        {
+          pep = transition_exp_used.getPeptides()[i];
+          transition = (*peptide_trans_map[pep.id][0]);
+          coord.mz = transition.getPrecursorMZ();
+          coord.id = pep.id;
+        }
+        else 
+        {
+          transition = transition_exp_used.getTransitions()[i];
+          pep = transition_exp_used.getPeptideByRef(transition.getPeptideRef()); 
+          coord.mz = transition.getProductMZ();
+          coord.id = transition.getNativeID();
+        }
+
+        if (pep.rts.empty() || pep.rts[0].getCVTerms()["MS:1000896"].empty())
+        {
+          // we dont have retention times -> this is only a problem if we actually
+          // wanted to use the RT limit feature.
+          if (rt_extraction_window >= 0)
+          {
+            throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+              "Error: Peptide " + pep.id + " does not have normalized retention times (term 1000896) which are necessary to perform an RT-limited extraction");
+          }
+          coord.rt = -1;
+        }
+        else
+        {
+          coord.rt = pep.rts[0].getCVTerms()["MS:1000896"][0].getValue().toString().toDouble();
+          coord.rt = trafo.apply(coord.rt); // apply RT transformation if necessary
+        }
+        coordinates.push_back(coord);
+      }
+      std::sort(coordinates.begin(), coordinates.end(), ChromatogramExtractor::ExtractionCoordinates::SortExtractionCoordinatesByMZ);
+    }
+
   void scoreAll_(OpenSwath::SpectrumAccessPtr input,
          OpenSwath::SpectrumAccessPtr swath_map,
          TargetedExpType& transition_exp, 
@@ -524,15 +591,23 @@ protected:
           cp.min_upper_edge_dist, swath_maps[i].lower, swath_maps[i].upper);
       if (transition_exp_used.getTransitions().size() == 0) { continue;}
 
-      MSExperiment<> tmp_out;
-      ChromatogramExtractor().extractChromatograms(swath_maps[i].sptr, tmp_out, transition_exp_used, cp.extraction_window,
-          cp.ppm, TransformationDescription(), cp.rt_extraction_window, cp.extraction_function);
+      std::vector< OpenSwath::ChromatogramPtr > tmp_out;
+      std::vector< ChromatogramExtractor::ExtractionCoordinates > coordinates;
+      prepare_coordinates(tmp_out, coordinates, transition_exp_used,  TransformationDescription(), cp.rt_extraction_window, false);
+
+      ChromatogramExtractor().extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
+          cp.ppm, cp.rt_extraction_window, cp.extraction_function);
 #ifdef _OPENMP
 #pragma omp critical (featureFinder)
 #endif
       {
-        chromatograms.reserve(chromatograms.size() + distance(tmp_out.getChromatograms().begin(),tmp_out.getChromatograms().end()));
-        chromatograms.insert(chromatograms.end(), tmp_out.getChromatograms().begin(), tmp_out.getChromatograms().end());
+        for (Size i = 0; i < tmp_out.size(); i++)
+        { 
+          OpenMS::MSChromatogram<> chrom;
+          OpenSwathDataAccessHelper::convertToOpenMSChromatogram(chrom, tmp_out[i]);
+          chrom.setNativeID(coordinates[i].id);
+          chromatograms.push_back(chrom);
+        }
       }
     }
   }
@@ -582,8 +657,23 @@ protected:
       // Step 2: extract these transitions
       ChromatogramExtractor extractor;
       boost::shared_ptr<MSExperiment<Peak1D> > chrom_tmp(new MSExperiment<Peak1D>);
-      extractor.extractChromatograms(swath_maps[i].sptr, *chrom_tmp.get(), transition_exp_used,
-          cp.extraction_window, cp.ppm, trafo, cp.rt_extraction_window, cp.extraction_function);
+
+      std::vector< OpenSwath::ChromatogramPtr > tmp_out; // chrom_tmp
+      std::vector< ChromatogramExtractor::ExtractionCoordinates > coordinates;
+      prepare_coordinates(tmp_out, coordinates, transition_exp_used, trafo, cp.rt_extraction_window, false);
+
+      extractor.extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
+          cp.ppm, cp.rt_extraction_window, cp.extraction_function);
+
+      std::vector< OpenMS::MSChromatogram<> > chromatograms;
+      for (Size j = 0; j < tmp_out.size(); j++)
+      { 
+        OpenMS::MSChromatogram<> chrom;
+        OpenSwathDataAccessHelper::convertToOpenMSChromatogram(chrom, tmp_out[j]);
+        chrom.setNativeID(coordinates[j].id);
+        chromatograms.push_back(chrom);
+      }
+      chrom_tmp->setChromatograms(chromatograms);
 
       // Convert to LightTargetedExperiment as FeatureFinder requests and convert chroms to ptr
       OpenSwath::LightTargetedExperiment light_transition_exp_used;
@@ -749,7 +839,7 @@ protected:
     std::vector< OpenMS::MSChromatogram<> > irt_chromatograms;
     simpleExtractChromatograms(swath_maps, irt_transitions, irt_chromatograms, cp_irt);
 #ifdef DEBUG_OPENSWATHWORKFLOW
-    std::cout << "Extracted iRT files" << std::endl;
+    std::cout << "Extracted iRT files: " << irt_chromatograms.size() <<  std::endl;
 #endif
 
     Param feature_finder_param = getParam_().copy("Scoring:", true);

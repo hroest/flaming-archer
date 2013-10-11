@@ -1,0 +1,25 @@
+
+Speed progression
+a537913378aa416f7ad149e4eb3f443418bf1ac6 : 160s
+51f67f6edc29ea64eb38d5aca64979599a0accc5 : 104s
+6b9cfb83399aaf208c2bc831ab4c69d79659d2e7 : 123s
+d01c2cfc1fddf41e69dba333cd749211540d8eba : 22.72
+61014f1f539c45c97ac61d6783bbf481f63a7355 : 20.89
+ed6fc9462bca9a717caafa8d268027488807cfb2 : 21.66
+767c88f185bf4c3d7ba12c5b69ac5ab63da82ae0 : ca 22.5s
+e4486d00b7594b0f54d88363fbe1b0066802d22d : 18.76s - 19.55
+a820f685f28d77bd44f1f9704a74ff85c675b07a : 16.34 - 17.9 s
+875f0c7db73d3eb45786c81f2d878f169470de63 : 17.35    # own fxn
+31c867288c9c87d82bed4e45a8c61597547cc866 : 18.92 s  # using std::max
+
+for comparison: FeatureLinkerUnlabeled : ca 10s
+
+
+expected:
+Progress of 'linking features':
+-- done [took 01:37 m (CPU), 01:38 m (Wall)] -- 
+Number of consensus features:
+  of size  2:   9417
+  of size  1:   2409
+  total:       11826
+

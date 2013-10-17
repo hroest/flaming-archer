@@ -733,10 +733,9 @@ protected:
 
     ProgressLogger progresslogger;
     progresslogger.setLogType(log_type_);
-    int progress = 0;
-    progresslogger.startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
 
     OpenSwath::LightTargetedExperiment transition_exp;
+    progresslogger.startProgress(0, swath_maps.size(), "Load TraML file");
 #ifdef DEBUG_OPENSWATHWORKFLOW
     std::cout << " Loading TraML file " << std::endl;
 #endif
@@ -757,7 +756,10 @@ protected:
     {
       TransitionTSVReader().convertTSVToTargetedExperiment(tr_file.c_str(), transition_exp);
     }
+    progresslogger.endProgress();
 
+    int progress = 0;
+    progresslogger.startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
     FeatureMap<> out_featureFile;
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -795,6 +797,7 @@ protected:
         }
       }
 
+      std::cout << " will extract " << coordinates.size() << " chromatograms" << std::endl;
       // Step 2.2: extract chromatograms
       extractor.extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
           cp.ppm, cp.extraction_function);
@@ -811,6 +814,7 @@ protected:
       chrom_tmp->setChromatograms(chromatograms);
       OpenSwath::SpectrumAccessPtr chromatogram_ptr = OpenSwath::SpectrumAccessPtr(new OpenMS::SpectrumAccessOpenMS(chrom_tmp));
 
+      std::cout << " will score " << coordinates.size() << " chromatograms" << std::endl;
       // Step 3: score these extracted transitions
       FeatureMap<> featureFile;
       scoreAll_(chromatogram_ptr, swath_maps[i].sptr, transition_exp_used, trafo,
@@ -853,11 +857,6 @@ protected:
 
     registerInputFile_("tr", "<file>", "", "transition file ('TraML' or 'csv')");
     setValidFormats_("tr", StringList::create("csv,traML"));
-
-    /*
-    registerInputFile_("rt_norm", "<file>", "", "RT normalization file (how to map the RTs of this run to the ones stored in the library)", false);
-    setValidFormats_("rt_norm", StringList::create("trafoXML"));
-    */
 
     registerOutputFile_("out", "<file>", "", "output file");
     setValidFormats_("out", StringList::create("featureXML"));

@@ -54,6 +54,7 @@
 // interfaces
 #include <OpenMS/ANALYSIS/OPENSWATH/OPENSWATHALGO/DATAACCESS/ISpectrumAccess.h>
 #include <OpenMS/ANALYSIS/OPENSWATH/OPENSWATHALGO/DATAACCESS/DataStructures.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/OPENSWATHALGO/DATAACCESS/TransitionExperiment.h>
 #include <OpenMS/ANALYSIS/OPENSWATH/DATAACCESS/SpectrumAccessOpenMS.h>
 #include <OpenMS/ANALYSIS/OPENSWATH/DATAACCESS/SpectrumAccessOpenMSCached.h>
 
@@ -344,18 +345,72 @@ public:
 
 protected:
 
-    typedef MSSpectrum<ChromatogramPeak> RichPeakChromatogram; // this is the type in which we store the chromatograms for this analysis
-    typedef OpenSwath::LightTransition TransitionType;
-    typedef SwathMapLoader::SwathMap SwathMap;
-    typedef OpenSwath::LightTargetedExperiment TargetedExpType;
-    typedef OpenSwath::LightPeptide PeptideType;
-    typedef OpenSwath::LightProtein ProteinType;
-    typedef OpenSwath::LightModification ModificationType;
-    typedef MRMTransitionGroup<MSSpectrum <ChromatogramPeak>, TransitionType> MRMTransitionGroupType; // a transition group holds the MSSpectra with the Chromatogram peaks from above
-    typedef std::map<String, MRMTransitionGroupType> TransitionGroupMapType;
+  typedef MSSpectrum<ChromatogramPeak> RichPeakChromatogram; // this is the type in which we store the chromatograms for this analysis
+  typedef OpenSwath::LightTransition TransitionType;
+  typedef SwathMapLoader::SwathMap SwathMap;
+  typedef OpenSwath::LightTargetedExperiment TargetedExpType;
+  typedef OpenSwath::LightPeptide PeptideType;
+  typedef OpenSwath::LightProtein ProteinType;
+  typedef OpenSwath::LightModification ModificationType;
+  typedef MRMTransitionGroup<MSSpectrum <ChromatogramPeak>, TransitionType> MRMTransitionGroupType; // a transition group holds the MSSpectra with the Chromatogram peaks from above
+  typedef std::map<String, MRMTransitionGroupType> TransitionGroupMapType;
 
-    typedef OpenSwath::ChromatogramPtr SmallChromatogram;
-    typedef std::map<String, std::vector<const ReactionMonitoringTransition*> > PeptideTransitionMapType;
+  void prepare_coordinates(std::vector< OpenSwath::ChromatogramPtr > & output_chromatograms,
+    std::vector< ChromatogramExtractorAlgorithm::ExtractionCoordinates > & coordinates,
+    OpenSwath::LightTargetedExperiment & transition_exp_used,
+    const double rt_extraction_window, const bool ms1) const
+  {
+    // hash of the peptide reference containing all transitions
+    std::map<String, std::vector<OpenSwath::LightTransition*> > peptide_trans_map;
+    for (Size i = 0; i < transition_exp_used.getTransitions().size(); i++)
+    {
+      peptide_trans_map[transition_exp_used.getTransitions()[i].getPeptideRef()].push_back(&transition_exp_used.getTransitions()[i]);
+    }
+    std::map<String, OpenSwath::LightPeptide* > trans_peptide_map;
+    for (Size i = 0; i < transition_exp_used.getPeptides().size(); i++)
+    {
+      trans_peptide_map[transition_exp_used.getPeptides()[i].id] = &transition_exp_used.getPeptides()[i];
+    }
+
+    // Determine iteration size (nr peptides or nr transitions)
+    Size itersize;
+    if (ms1) {itersize = transition_exp_used.getPeptides().size();}
+    else     {itersize = transition_exp_used.getTransitions().size();}
+
+    for (Size i = 0; i < itersize; i++)
+    {
+      OpenSwath::ChromatogramPtr s(new OpenSwath::Chromatogram);
+      output_chromatograms.push_back(s);
+
+      ChromatogramExtractor::ExtractionCoordinates coord;
+      OpenSwath::LightPeptide pep; // TargetedExperiment::Peptide pep;
+      OpenSwath::LightTransition transition;
+
+      if (ms1) 
+      {
+        pep = transition_exp_used.getPeptides()[i];
+        transition = (*peptide_trans_map[pep.id][0]);
+        coord.mz = transition.getPrecursorMZ();
+        coord.id = pep.id;
+      }
+      else 
+      {
+        transition = transition_exp_used.getTransitions()[i];
+        pep = (*trans_peptide_map[transition.getPeptideRef()]);
+        coord.mz = transition.getProductMZ();
+        coord.id = transition.getNativeID();
+      }
+
+      double rt = pep.rt;
+      coord.rt_start = rt - rt_extraction_window / 2.0;
+      coord.rt_end = rt + rt_extraction_window / 2.0;
+      coordinates.push_back(coord);
+    }
+
+    // sort result
+    std::sort(coordinates.begin(), coordinates.end(), ChromatogramExtractor::ExtractionCoordinates::SortExtractionCoordinatesByMZ);
+  }
+
 
   void scoreAll_(OpenSwath::SpectrumAccessPtr input,
          OpenSwath::SpectrumAccessPtr swath_map,

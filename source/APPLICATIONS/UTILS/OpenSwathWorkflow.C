@@ -45,6 +45,7 @@
 #include <OpenMS/FORMAT/DATAACCESS/MSDataTransformingConsumer.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
 #include <OpenMS/FORMAT/TransformationXMLFile.h>
+#include <OpenMS/ANALYSIS/OPENSWATH/TransitionTSVReader.h>
 
 // helpers
 #include <OpenMS/ANALYSIS/OPENSWATH/OpenSwathHelper.h>
@@ -411,7 +412,6 @@ protected:
     std::sort(coordinates.begin(), coordinates.end(), ChromatogramExtractor::ExtractionCoordinates::SortExtractionCoordinatesByMZ);
   }
 
-
   void scoreAll_(OpenSwath::SpectrumAccessPtr input,
          OpenSwath::SpectrumAccessPtr swath_map,
          TargetedExpType& transition_exp, 
@@ -630,6 +630,8 @@ protected:
 #ifdef DEBUG_OPENSWATHWORKFLOW
     std::cout << " Loading TraML file " << std::endl;
 #endif
+    FileTypes::Type tr_file_type = FileTypes::nameToType(tr_file);
+    if (tr_file_type == FileTypes::TRAML || tr_file.suffix(5).toLower() == "traml"  )
     {
       TargetedExperiment *transition_exp_tmp_ = new TargetedExperiment();
       TargetedExperiment &transition_exp_ = *transition_exp_tmp_;
@@ -640,6 +642,10 @@ protected:
       }
       OpenSwathDataAccessHelper::convertTargetedExp(transition_exp_, transition_exp);
       delete transition_exp_tmp_;
+    }
+    else
+    {
+      TransitionTSVReader().convertTSVToTargetedExperiment(tr_file.c_str(), transition_exp);
     }
 
     FeatureMap<> out_featureFile;

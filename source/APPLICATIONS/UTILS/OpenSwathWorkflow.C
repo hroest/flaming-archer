@@ -499,11 +499,10 @@ protected:
       
   TransformationDescription RTNormalization(TargetedExperiment transition_exp_,
           std::vector< OpenMS::MSChromatogram<> > chromatograms, double min_rsq, double min_coverage, 
-          Param& feature_finder_param)
+          Param feature_finder_param)
   {
     ProgressLogger progresslogger;
     progresslogger.setLogType(log_type_);
-    int progress = 0;
     progresslogger.startProgress(0, 1, "Retention time normalization");
 
     OpenSwath::LightTargetedExperiment targeted_exp;
@@ -603,6 +602,15 @@ protected:
     }
   }
 
+  /**
+   *
+   * Program flow
+   * 
+   * 1. OpenSwathHelper::selectSwathTransitions
+   * 2. ChromatogramExtractor prpare, extract
+   * 3. scoreAll_
+   *
+  */
   void extractAndScore(const std::vector< SwathMap > & swath_maps,
     const TransformationDescription trafo,
     ChromExtractParams cp, String tr_file, String out, 
@@ -792,8 +800,22 @@ protected:
       feature_finder_param.remove("EMGScoring:statistics:variance");
       return feature_finder_param;
     }
+    else
+    {
+      throw Exception::InvalidValue(__FILE__, __LINE__, __PRETTY_FUNCTION__, "Unknown subsection", name);
+    }
   }
 
+  /**
+   *
+   * Program flow
+   *
+   * 1. SwathMapLoader -> load_files
+   * 2. simpleExtractChromatograms iRT
+   * 3. RTNormalization
+   * 4. extractAndScore
+   *
+  */
   ExitCodes main_(int, const char **)
   {
     StringList file_list = getStringList_("in");

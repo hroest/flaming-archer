@@ -584,9 +584,11 @@ protected:
       std::vector< OpenSwath::ChromatogramPtr > tmp_out;
       std::vector< ChromatogramExtractor::ExtractionCoordinates > coordinates;
       ChromatogramExtractor extractor;
-      extractor.prepare_coordinates(tmp_out, coordinates, transition_exp_used,  (cp.rt_extraction_window > 0.0), false);
+      // TODO for lrage rt extraction windows!
+      extractor.prepare_coordinates(tmp_out, coordinates, transition_exp_used,  cp.rt_extraction_window, false);
       extractor.extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
-          cp.ppm, cp.rt_extraction_window, cp.extraction_function);
+          cp.ppm, cp.extraction_function);
+
 #ifdef _OPENMP
 #pragma omp critical (featureFinder)
 #endif
@@ -624,22 +626,20 @@ protected:
     int progress = 0;
     progresslogger.startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
 
-    // Load the OpenMS TransitionExperiment (since ChromExtractor wants an old TransitionExp)
-    // OpenSwath::LightTargetedExperiment transition_exp;
+    OpenSwath::LightTargetedExperiment transition_exp;
 #ifdef DEBUG_OPENSWATHWORKFLOW
     std::cout << " Loading TraML file " << std::endl;
 #endif
-    TargetedExperiment transition_exp;
     {
-      // TargetedExperiment *transition_exp__ = new TargetedExperiment();
-      // TargetedExperiment &transition_exp_ = *transition_exp__;
+      TargetedExperiment *transition_exp_tmp_ = new TargetedExperiment();
+      TargetedExperiment &transition_exp_ = *transition_exp_tmp_;
       {
         TraMLFile *t = new TraMLFile;
-        t->load(tr_file, transition_exp);
+        t->load(tr_file, transition_exp_);
         delete t;
       }
-      // OpenSwathDataAccessHelper::convertTargetedExp(transition_exp_, transition_exp);
-      // delete transition_exp__;
+      OpenSwathDataAccessHelper::convertTargetedExp(transition_exp_, transition_exp);
+      delete transition_exp_tmp_;
     }
 
     FeatureMap<> out_featureFile;
@@ -651,7 +651,7 @@ protected:
       if (swath_maps[i].ms1) {continue;}
 
       // Step 1: select transitions
-      TargetedExperiment transition_exp_used;
+      OpenSwath::LightTargetedExperiment transition_exp_used;
       OpenSwathHelper::selectSwathTransitions(transition_exp, transition_exp_used,
           cp.min_upper_edge_dist, swath_maps[i].lower, swath_maps[i].upper);
       if (transition_exp_used.getTransitions().size() == 0) { continue;}
@@ -663,15 +663,27 @@ protected:
       std::vector< OpenSwath::ChromatogramPtr > tmp_out; // chrom_tmp
       std::vector< ChromatogramExtractor::ExtractionCoordinates > coordinates;
 
-      extractor.prepare_coordinates(tmp_out, coordinates, transition_exp_used,  (cp.rt_extraction_window > 0.0), false);
-      for (std::vector< ChromatogramExtractor::ExtractionCoordinates >::iterator it = coordinates.begin(); it != coordinates.end(); it++)
+      // Step 2.1: prepare the extraction coordinates
+      if (cp.rt_extraction_window < 0)
       {
-        it->rt = trafo_inverse.apply(it->rt);
+        prepare_coordinates(tmp_out, coordinates, transition_exp_used, cp.rt_extraction_window, false);
+      }
+      else
+      {
+        // Use an rt extraction window of 0.0 which will just write the retention time in start / end positions
+        prepare_coordinates(tmp_out, coordinates, transition_exp_used, 0.0, false);
+        for (std::vector< ChromatogramExtractor::ExtractionCoordinates >::iterator it = coordinates.begin(); it != coordinates.end(); it++)
+        {
+          it->rt_start = trafo_inverse.apply(it->rt_start) - cp.rt_extraction_window / 2.0;
+          it->rt_end = trafo_inverse.apply(it->rt_end) + cp.rt_extraction_window / 2.0;
+        }
       }
 
+      // Step 2.2: extract chromatograms
       extractor.extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
-          cp.ppm, cp.rt_extraction_window, cp.extraction_function);
+          cp.ppm, cp.extraction_function);
 
+      // Step 2.3: convert chromatograms back
       std::vector< OpenMS::MSChromatogram<> > chromatograms;
       for (Size j = 0; j < tmp_out.size(); j++)
       {
@@ -681,15 +693,12 @@ protected:
         chromatograms.push_back(chrom);
       }
       chrom_tmp->setChromatograms(chromatograms);
-
-      // Convert to LightTargetedExperiment as FeatureFinder requests and convert chroms to ptr
-      OpenSwath::LightTargetedExperiment light_transition_exp_used;
-      OpenSwathDataAccessHelper::convertTargetedExp(transition_exp_used, light_transition_exp_used);
       OpenSwath::SpectrumAccessPtr chromatogram_ptr = OpenSwath::SpectrumAccessPtr(new OpenMS::SpectrumAccessOpenMS(chrom_tmp));
 
       // Step 3: score these extracted transitions
       FeatureMap<> featureFile;
-      scoreAll_(chromatogram_ptr, swath_maps[i].sptr, light_transition_exp_used, trafo, cp.rt_extraction_window, featureFile, feature_finder_param);
+      scoreAll_(chromatogram_ptr, swath_maps[i].sptr, transition_exp_used, trafo,
+          cp.rt_extraction_window, featureFile, feature_finder_param);
 
       // write all features and the protein identifications from tmp_featureFile into featureFile
 #ifdef _OPENMP

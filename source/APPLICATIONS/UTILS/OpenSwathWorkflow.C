@@ -416,7 +416,7 @@ protected:
          OpenSwath::SpectrumAccessPtr swath_map,
          TargetedExpType& transition_exp, 
          TransformationDescription trafo, double rt_extraction_window, 
-         FeatureMap<Feature>& output, Param& feature_finder_param)
+         FeatureMap<Feature>& output, Param& feature_finder_param, std::ostream &os, bool write_to_stream)
   {
     double expected_rt;
     TransformationDescription trafo_inv = trafo;
@@ -493,10 +493,113 @@ protected:
 
       // Process the transition_group
       trgroup_picker.pickTransitionGroup(transition_group);
+      
+      if (write_to_stream) output.clear();
       featureFinder.scorePeakgroups(transition_group, trafo, swath_map, output);
+
+#ifdef _OPENMP
+#pragma omp critical (scoreAll)
+#endif
+      if (write_to_stream)
+      {
+        const OpenSwath::LightPeptide pep = transition_exp.getPeptides()[ assay_peptide_map[id] ];
+        const TransitionType* transition = assay_it->second[0];
+        String decoy = "0"; // 0 = false
+        if (transition->decoy) decoy = "1";
+        for (FeatureMap<>::iterator feature_it = output.begin(); feature_it != output.end(); feature_it++)
+        {
+
+          char intensity_char[40];
+          String aggr_Peak_Area = "";
+          String aggr_Peak_Apex = "";
+          String aggr_Fragment_Annotation = "";
+          for (std::vector<Feature>::iterator sub_it = feature_it->getSubordinates().begin(); sub_it != feature_it->getSubordinates().end(); ++sub_it)
+          {
+            sprintf(intensity_char, "%f", sub_it->getIntensity());
+            aggr_Peak_Area += (String)intensity_char + ";";
+            aggr_Peak_Apex +=  "NA;";
+            aggr_Fragment_Annotation += (String)sub_it->getMetaValue("native_id") + ";";
+          }
+          if (!feature_it->getSubordinates().empty())
+          {
+            aggr_Peak_Area = aggr_Peak_Area.substr(0, aggr_Peak_Area.size() - 1);
+            aggr_Peak_Apex = aggr_Peak_Apex.substr(0, aggr_Peak_Apex.size() - 1);
+            aggr_Fragment_Annotation = aggr_Fragment_Annotation.substr(0, aggr_Fragment_Annotation.size() - 1);
+          }
+
+          String full_peptide_name = "";
+          for (int loc = -1; loc <= (int)pep.sequence.size(); loc++)
+          {
+            if (loc > -1 && loc < (int)pep.sequence.size())
+            {
+              full_peptide_name += pep.sequence[loc];
+            }
+            // C-terminal and N-terminal modifications may be at positions -1 or pep.sequence
+            for (Size modloc = 0; modloc < pep.modifications.size(); modloc++)
+            {
+              if (pep.modifications[modloc].location == loc)
+              {
+                full_peptide_name += "(" + pep.modifications[modloc].unimod_id + ")";
+              }
+            }
+          }
+
+          String line = "";
+          line += id + "_run0"
+            + "\t" + "0" 
+            + "\t" + "/tmp/out.featureXML"
+            + "\t" + (String)feature_it->getRT() 
+            + "\t" + "f_" + feature_it->getUniqueId() 
+            + "\t" + pep.sequence
+            + "\t" + full_peptide_name
+            + "\t" + (String)pep.charge
+            + "\t" + (String)transition->precursor_mz
+            + "\t" + (String)feature_it->getIntensity() 
+            + "\t" + pep.protein_ref
+            + "\t" + decoy 
+            // Note: missing MetaValues will just produce a DataValue::EMPTY which lead to an empty column
+            + "\t" + (String)feature_it->getMetaValue("assay_rt") 
+            + "\t" + (String)feature_it->getMetaValue("delta_rt") 
+            + "\t" + (String)feature_it->getMetaValue("leftWidth") 
+            + "\t" + (String)feature_it->getMetaValue("main_var_xx_swath_prelim_score") 
+            + "\t" + (String)feature_it->getMetaValue("norm_RT") 
+            + "\t" + (String)feature_it->getMetaValue("nr_peaks") 
+            + "\t" + (String)feature_it->getMetaValue("peak_apices_sum") 
+            + "\t" + (String)feature_it->getMetaValue("potentialOutlier") 
+            + "\t" + (String)feature_it->getMetaValue("rightWidth") 
+            + "\t" + (String)feature_it->getMetaValue("rt_score") 
+            + "\t" + (String)feature_it->getMetaValue("sn_ratio") 
+            + "\t" + (String)feature_it->getMetaValue("total_xic") 
+            + "\t" + (String)feature_it->getMetaValue("var_bseries_score") 
+            + "\t" + (String)feature_it->getMetaValue("var_dotprod_score") 
+            + "\t" + (String)feature_it->getMetaValue("var_intensity_score") 
+            + "\t" + (String)feature_it->getMetaValue("var_isotope_correlation_score") 
+            + "\t" + (String)feature_it->getMetaValue("var_isotope_overlap_score") 
+            + "\t" + (String)feature_it->getMetaValue("var_library_corr") 
+            + "\t" + (String)feature_it->getMetaValue("var_library_dotprod") 
+            + "\t" + (String)feature_it->getMetaValue("var_library_manhattan") 
+            + "\t" + (String)feature_it->getMetaValue("var_library_rmsd") 
+            + "\t" + (String)feature_it->getMetaValue("var_library_rootmeansquare") 
+            + "\t" + (String)feature_it->getMetaValue("var_library_sangle") 
+            + "\t" + (String)feature_it->getMetaValue("var_log_sn_score") 
+            + "\t" + (String)feature_it->getMetaValue("var_manhatt_score") 
+            + "\t" + (String)feature_it->getMetaValue("var_massdev_score") 
+            + "\t" + (String)feature_it->getMetaValue("var_massdev_score_weighted") 
+            + "\t" + (String)feature_it->getMetaValue("var_norm_rt_score") 
+            + "\t" + (String)feature_it->getMetaValue("var_xcorr_coelution") 
+            + "\t" + (String)feature_it->getMetaValue("var_xcorr_coelution_weighted") 
+            + "\t" + (String)feature_it->getMetaValue("var_xcorr_shape") 
+            + "\t" + (String)feature_it->getMetaValue("var_xcorr_shape_weighted") 
+            + "\t" + (String)feature_it->getMetaValue("var_yseries_score") 
+            + "\t" + (String)feature_it->getMetaValue("xx_lda_prelim_score") 
+            + "\t" + (String)feature_it->getMetaValue("xx_swath_prelim_score") 
+            + "\t" + aggr_Peak_Area + "\t" + aggr_Peak_Apex + "\t" + aggr_Fragment_Annotation + "\n";
+          os << line;
+        } // end of iteration
+      }
     }
   }
-      
+
   TransformationDescription RTNormalization(TargetedExperiment transition_exp_,
           std::vector< OpenMS::MSChromatogram<> > chromatograms, double min_rsq, double min_coverage, 
           Param feature_finder_param)
@@ -616,8 +719,15 @@ protected:
   void extractAndScore(const std::vector< SwathMap > & swath_maps,
     const TransformationDescription trafo,
     ChromExtractParams cp, String tr_file, String out, 
-    Param& feature_finder_param)
+    Param& feature_finder_param, String out_tsv)
   {
+
+    std::ofstream os(out_tsv.c_str());
+    if (!out_tsv.empty())
+    {
+      os << "transition_group_id\trun_id\tfilename\tRT\tid\tSequence\tFullPeptideName\tCharge\tm/z\tIntensity\tProteinName\tdecoy\tassay_rt\tdelta_rt\tleftWidth\tmain_var_xx_swath_prelim_score\tnorm_RT\ttnr_peaks\tpeak_apices_sum\tpotentialOutlier\trightWidth\trt_score\tsn_ratio\ttotal_xic\tvar_bseries_score\tvar_dotprod_score\tvar_intensity_score\tvar_isotope_correlation_score\tvar_isotope_overlap_score\tvar_library_corr\tvar_library_dotprod\tvar_library_manhattan\tvar_library_rmsd\tvar_library_rootmeansquare\tvar_library_sangle\tvar_log_sn_score\tvar_manhatt_score\tvar_massdev_score\tvar_massdev_score_weighted\tvat_norm_rt_score\tvar_xcorr_coelution\tvar_xcorr_coelution_weighted\tvar_xcorr_shape\tvar_xcorr_shape_weighted\tvar_yseries_score\txx_lda_prelim_score\txx_swath_prelim_score\taggr_Peak_Area\taggr_Peak_Apex\taggr_Fragment_Annotation\n";
+    }
+
     TransformationDescription trafo_inverse = trafo;
     trafo_inverse.invert();
 
@@ -704,7 +814,7 @@ protected:
       // Step 3: score these extracted transitions
       FeatureMap<> featureFile;
       scoreAll_(chromatogram_ptr, swath_maps[i].sptr, transition_exp_used, trafo,
-          cp.rt_extraction_window, featureFile, feature_finder_param);
+          cp.rt_extraction_window, featureFile, feature_finder_param, os, !out_tsv.empty());
 
       // write all features and the protein identifications from tmp_featureFile into featureFile
 #ifdef _OPENMP
@@ -752,6 +862,7 @@ protected:
     registerOutputFile_("out", "<file>", "", "output file");
     setValidFormats_("out", StringList::create("featureXML"));
 
+    registerStringOption_("out_tsv", "<file>", "", "tsv output file (mProphet compatible)", false);
 
     registerDoubleOption_("min_upper_edge_dist", "<double>", 0.0, "Minimal distance to the edge to still consider a precursor, in Thomson", false);
     registerDoubleOption_("extraction_window", "<double>", 0.05, "Extraction window used (in Thomson, to use ppm see -ppm flag)", false);
@@ -837,6 +948,7 @@ protected:
     String irt_tr_file = getStringOption_("tr_irt");
     String tr_file = getStringOption_("tr");
     String out = getStringOption_("out");
+    String out_tsv = getStringOption_("out_tsv");
     bool ppm = getFlag_("ppm");
     DoubleReal min_upper_edge_dist = getDoubleOption_("min_upper_edge_dist");
     DoubleReal extraction_window = getDoubleOption_("extraction_window");
@@ -884,7 +996,7 @@ protected:
     TransformationDescription trafo_rtnorm = RTNormalization(irt_transitions,
             irt_chromatograms, min_rsq, min_coverage, feature_finder_param);
 
-    extractAndScore(swath_maps, trafo_rtnorm, cp, tr_file, out, feature_finder_param);
+    extractAndScore(swath_maps, trafo_rtnorm, cp, tr_file, out, feature_finder_param, out_tsv);
 
     return EXECUTION_OK;
   }

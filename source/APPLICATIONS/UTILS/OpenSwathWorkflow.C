@@ -670,3 +670,103 @@ int main(int argc, const char ** argv)
 }
 
 /// @endcond
+
+
+/*
+ *_         
+
+
+-- extraction takes 0.39 seconds or 1.67 %
+
+will score 166 chromatograms
+7.15208961654 chromatograms / second [ 23.3 seconds] with all scores
+8.4           chromatograms / second [ 19.76 seconds] without the DIA scores
+12.7496159754 chromatograms / second [ 13.02 seconds] without the model fit
+13.0708661417 chrom / second [12 seconds] without the dia and model fit
+
+504.0 / minute
+
+- copying the chromatograms around costs 0.62 seconds 
+- picking the peaks costs [without signal to noise] 2.64 seconds (8%)
+- picking the peaks costs [with signal to noise] 7.5 seconds (30%)
+- creating the SignalToNoise estimators alone costs 7.82 seconds (34%)
+- calculateChromatographicScores (without elution model) 8.14 seconds (alone 0.3 seconds)
+- calculateLibraryScores 8.17 seconds
+- calculateDIAScores 11.09 seconds (3 seconds or 13%)
+- calculateDIAScores 21.10 seconds (10 seconds or 42%) with the EMG scores
+
+
+print (7.54-0.62)/ 23.3
+
+
+0.296995708155
+
+0.08669527897
+0.11330472103
+
+# 1 Million transitions
+print 1000000 / 12.7 *1/(3600.0), "hours"
+21.8722659668
+print 1000000 / 7.15 *1/(3600.0), "hours"
+38.85003885 hours
+
+ will score 517 chromatograms
+-- done [took 59.37 s (CPU), 59.69 s (Wall)] -- 
+print 517 / 59.3
+8.71838111298 chromatograms / second
+
+
+  File "<string>", line 3
+    will score 517 chromatograms
+    ^
+IndentationError: unexpected indent
+
+*/
+
+/*
+ *
+ * NoiseEstimator: regular vs rapid -> when just measuring the performance of doing the same estimation 4000 times:
+ *  ca 10 seconds for old one, ca 1.2 seconds for Rapid -> 8x increase in performance ... 
+ *
+ *
+ * When extracting real chromatograms and running them through :
+ *
+ * without any S/N
+ *
+ * real    1m6.057s
+ * user    1m4.592s
+ * sys     0m1.116s
+ *
+ *
+ *  OpenMS::SignalToNoiseEstimatorMedian< MSChromatogram<ChromatogramPeak> >().init(chromatogram_old);
+ * real    1m46.083s
+ * user    1m44.307s
+ * sys     0m1.240s
+ *
+ * delta = 40 seconds
+ *
+ * SignalToNoiseEstimatorMedianRapid(200).compute(cptr->getTimeArray()->data, cptr->getIntensityArray()->data);
+ * real    1m10.709s
+ * user    1m9.132s
+ * sys     0m1.196s
+ *
+ * delta = 4 seconds
+ *
+ *      std::vector<double> mz(chromatogram_old.size()), intensity(chromatogram_old.size());
+ *      for (Size p = 0; p < chromatogram_old.size(); ++p)
+ *      {
+ *        mz[p] = chromatogram_old[p].getMZ();
+ *        intensity[p] = chromatogram_old[p].getIntensity();
+ *      }
+ *      SignalToNoiseEstimatorMedianRapid(200).estimateNoise(mz, intensity);
+ *
+ * with copying of all data: 
+ * real    1m11.566s
+ * user    1m9.948s
+ * sys     0m1.248s
+ * hr@hr-Latitude-E6410
+ *
+ * delta = 5 seconds
+ *
+
+*/

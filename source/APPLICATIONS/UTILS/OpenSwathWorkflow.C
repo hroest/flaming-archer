@@ -850,6 +850,7 @@ protected:
 #ifdef _OPENMP
 #pragma omp critical (featureFinder)
 #endif
+        if (!out.empty())
         {
           for (FeatureMap<Feature>::iterator feature_it = featureFile.begin();
                feature_it != featureFile.end(); feature_it++)
@@ -868,9 +869,13 @@ protected:
       }
 
     }
-    addDataProcessing_(out_featureFile, getProcessingInfo_(DataProcessing::QUANTITATION));
-    out_featureFile.ensureUniqueId();
-    FeatureXMLFile().store(out, out_featureFile);
+
+    if (!out.empty())
+    {
+      addDataProcessing_(out_featureFile, getProcessingInfo_(DataProcessing::QUANTITATION));
+      out_featureFile.ensureUniqueId();
+      FeatureXMLFile().store(out, out_featureFile);
+    }
     progresslogger.endProgress();
   }
 
@@ -879,24 +884,28 @@ protected:
     registerInputFileList_("in", "<files>", StringList(), "Input files separated by blank");
     setValidFormats_("in", StringList::create("mzML"));
 
-    registerInputFile_("tr_irt", "<file>", "", "transition file ('TraML' or 'csv')");
-    setValidFormats_("tr_irt", StringList::create("csv,traML"));
-
     registerInputFile_("tr", "<file>", "", "transition file ('TraML' or 'csv')");
     setValidFormats_("tr", StringList::create("csv,traML"));
 
-    registerOutputFile_("out", "<file>", "", "output file");
-    setValidFormats_("out", StringList::create("featureXML"));
+    // one of the following two needs to be set
+    registerInputFile_("tr_irt", "<file>", "", "transition file ('TraML' or 'csv')", false);
+    setValidFormats_("tr_irt", StringList::create("csv,traML"));
+
+    registerInputFile_("rt_norm", "<file>", "", "RT normalization file (how to map the RTs of this run to the ones stored in the library). If set, tr_irt may be omitted.", false);
+    setValidFormats_("rt_norm", StringList::create("trafoXML"));
+
+    // one of the following two needs to be set
+    registerOutputFile_("out_features", "<file>", "", "output file", false);
+    setValidFormats_("out_features", StringList::create("featureXML"));
 
     registerStringOption_("out_tsv", "<file>", "", "tsv output file (mProphet compatible)", false);
-    registerStringOption_("out_chrom", "<file>", "", ".chrom.mzML output (all chromatograms)", false);
 
-    registerInputFile_("rt_norm", "<file>", "", "RT normalization file (how to map the RTs of this run to the ones stored in the library)", false);
-    setValidFormats_("rt_norm", StringList::create("trafoXML"));
+    registerOutputFile_("out_chrom", "<file>", "", ".chrom.mzML output (all chromatograms)", false);
+    setValidFormats_("out_chrom", StringList::create("mzML"));
 
     registerDoubleOption_("min_upper_edge_dist", "<double>", 0.0, "Minimal distance to the edge to still consider a precursor, in Thomson", false);
     registerDoubleOption_("extraction_window", "<double>", 0.05, "Extraction window used (in Thomson, to use ppm see -ppm flag)", false);
-    registerDoubleOption_("rt_extraction_window", "<double>", -1, "Only extract RT around this value (-1 means extract over the whole range, a value of 500 means to extract around +/- 500 s of the expected elution).", false);
+    registerDoubleOption_("rt_extraction_window", "<double>", 300.0, "Only extract RT around this value (-1 means extract over the whole range, a value of 600 means to extract around +/- 300 s of the expected elution).", false);
     setMinFloat_("extraction_window", 0.0);
 
     registerDoubleOption_("min_rsq", "<double>", 0.95, "Minimum r-squared of RT peptides regression", false);
@@ -923,8 +932,8 @@ protected:
     {
       // set sensible default parameters
       Param feature_finder_param = MRMFeatureFinderScoring().getDefaults();
-      feature_finder_param.setValue("rt_extraction_window", 300.0); // 10 minutes (+/- 5 minutes)
-      feature_finder_param.setValue("rt_normalization_factor", 100.0);
+      feature_finder_param.remove("rt_extraction_window");
+      feature_finder_param.setValue("rt_normalization_factor", 100.0); // for iRT peptides between 0 and 100 (more or less)
 
       feature_finder_param.setValue("TransitionGroupPicker:min_peak_width", 12.0);
       feature_finder_param.setValue("TransitionGroupPicker:recalculate_peaks", "true");
@@ -978,10 +987,14 @@ protected:
   ExitCodes main_(int, const char **)
   {
     StringList file_list = getStringList_("in");
-    String irt_tr_file = getStringOption_("tr_irt");
     String tr_file = getStringOption_("tr");
-    String out = getStringOption_("out");
+
+    String out = getStringOption_("out_features");
     String out_tsv = getStringOption_("out_tsv");
+
+    String irt_tr_file = getStringOption_("tr_irt");
+    String trafo_in = getStringOption_("rt_norm");
+
     String out_chrom = getStringOption_("out_chrom");
     bool ppm = getFlag_("ppm");
     DoubleReal min_upper_edge_dist = getDoubleOption_("min_upper_edge_dist");
@@ -989,12 +1002,18 @@ protected:
     DoubleReal rt_extraction_window = getDoubleOption_("rt_extraction_window");
     String extraction_function = getStringOption_("extraction_function");
     int batchSize = (int)getIntOption_("batchSize");
-    String trafo_in = getStringOption_("rt_norm");
 
     String readoptions = getStringOption_("readOptions");
 
     String tmp = "/tmp/";
     double irt_extraction_window = -1;
+
+    if (trafo_in.empty() && irt_tr_file.empty()) 
+          throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+              "Either rt_norm or tr_irt needs to be set");
+    if (out.empty() && out_tsv.empty()) 
+          throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+              "Either out_features or out_tsv needs to be set");
 
     ChromExtractParams cp;
     cp.min_upper_edge_dist   = min_upper_edge_dist;

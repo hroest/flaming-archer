@@ -891,6 +891,9 @@ protected:
     registerStringOption_("out_tsv", "<file>", "", "tsv output file (mProphet compatible)", false);
     registerStringOption_("out_chrom", "<file>", "", ".chrom.mzML output (all chromatograms)", false);
 
+    registerInputFile_("rt_norm", "<file>", "", "RT normalization file (how to map the RTs of this run to the ones stored in the library)", false);
+    setValidFormats_("rt_norm", StringList::create("trafoXML"));
+
     registerDoubleOption_("min_upper_edge_dist", "<double>", 0.0, "Minimal distance to the edge to still consider a precursor, in Thomson", false);
     registerDoubleOption_("extraction_window", "<double>", 0.05, "Extraction window used (in Thomson, to use ppm see -ppm flag)", false);
     registerDoubleOption_("rt_extraction_window", "<double>", -1, "Only extract RT around this value (-1 means extract over the whole range, a value of 500 means to extract around +/- 500 s of the expected elution).", false);
@@ -986,6 +989,7 @@ protected:
     DoubleReal rt_extraction_window = getDoubleOption_("rt_extraction_window");
     String extraction_function = getStringOption_("extraction_function");
     int batchSize = (int)getIntOption_("batchSize");
+    String trafo_in = getStringOption_("rt_norm");
 
     String readoptions = getStringOption_("readOptions");
 
@@ -1002,37 +1006,50 @@ protected:
     ChromExtractParams cp_irt = cp;
     cp_irt.rt_extraction_window = irt_extraction_window;
 
+    Param feature_finder_param = getParam_().copy("Scoring:", true);
+
     // Load the SWATH files
     SwathMapLoader sml;
     sml.setLogType(log_type_);
-
     boost::shared_ptr<ExperimentalSettings > exp_meta(new ExperimentalSettings);
     std::vector< SwathMap > swath_maps = sml.load_files(file_list, tmp, exp_meta, readoptions);
 
-    // Loading iRT file
-    TraMLFile traml;
-    OpenMS::TargetedExperiment irt_transitions;
-    traml.load(irt_tr_file, irt_transitions);
+    // Get the trafo information
+    TransformationDescription trafo_rtnorm;
+    if (trafo_in.size() > 0) 
+    {
+      // get read RT normalization file
+      TransformationXMLFile trafoxml;
+      trafoxml.load(trafo_in, trafo_rtnorm);
+      Param model_params = getParam_().copy("model:", true);
+      model_params.setValue("symmetric_regression", "false");
+      String model_type = "linear";
+      trafo_rtnorm.fitModel(model_type, model_params);
+    }
+    else
+    {
+      // Loading iRT file
+      TraMLFile traml;
+      OpenMS::TargetedExperiment irt_transitions;
+      traml.load(irt_tr_file, irt_transitions);
 #ifdef DEBUG_OPENSWATHWORKFLOW
-    std::cout << "Loaded iRT files" << std::endl;
+      std::cout << "Loaded iRT files" << std::endl;
 #endif
 
-    // Extracting the iRT file
-    std::vector< OpenMS::MSChromatogram<> > irt_chromatograms;
-    simpleExtractChromatograms(swath_maps, irt_transitions, irt_chromatograms, cp_irt);
+      // Extracting the iRT file
+      std::vector< OpenMS::MSChromatogram<> > irt_chromatograms;
+      simpleExtractChromatograms(swath_maps, irt_transitions, irt_chromatograms, cp_irt);
 #ifdef DEBUG_OPENSWATHWORKFLOW
-    std::cout << "Extracted iRT files: " << irt_chromatograms.size() <<  std::endl;
+      std::cout << "Extracted iRT files: " << irt_chromatograms.size() <<  std::endl;
 #endif
+      // get RT normalization from data
+      DoubleReal min_rsq = getDoubleOption_("min_rsq");
+      DoubleReal min_coverage = getDoubleOption_("min_coverage");
+      trafo_rtnorm = RTNormalization(irt_transitions,
+              irt_chromatograms, min_rsq, min_coverage, feature_finder_param);
+    }
 
-    Param feature_finder_param = getParam_().copy("Scoring:", true);
-    DoubleReal min_rsq = getDoubleOption_("min_rsq");
-    DoubleReal min_coverage = getDoubleOption_("min_coverage");
-    TransformationDescription trafo_rtnorm = RTNormalization(irt_transitions,
-            irt_chromatograms, min_rsq, min_coverage, feature_finder_param);
-
-    //////////////////////////////////////////
-    // File loading
-
+    // Load the transitions
     OpenSwath::LightTargetedExperiment transition_exp;
     ProgressLogger progresslogger;
     progresslogger.setLogType(log_type_);
@@ -1056,6 +1073,7 @@ protected:
     }
     progresslogger.endProgress();
 
+    // Set up chrom.mzML output
     MSDataWritingConsumer * chromConsumer;
     if (!out_chrom.empty())
     {
@@ -1069,6 +1087,7 @@ protected:
       chromConsumer = new NoopMSDataWritingConsumer(out_chrom);
     }
 
+    // Extract and score
     extractAndScore(swath_maps, trafo_rtnorm, cp, transition_exp, out, 
         feature_finder_param, out_tsv, chromConsumer, batchSize);
 

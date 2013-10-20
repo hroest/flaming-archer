@@ -360,6 +360,9 @@ namespace OpenMS
       MzMLFile().load(meta_file, *exp.get());
       ms1_map_ = exp;
 
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
       for (Size i = 0; i < swath_consumers_.size(); i++)
       {
         boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);

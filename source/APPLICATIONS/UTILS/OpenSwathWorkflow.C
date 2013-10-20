@@ -672,6 +672,7 @@ int main(int argc, const char ** argv)
 /// @endcond
 
 
+// Speed analysis
 /*
  *_         
 
@@ -723,6 +724,7 @@ IndentationError: unexpected indent
 
 */
 
+// NoiseEstimator Rapid vs standard -> speedtest
 /*
  *
  * NoiseEstimator: regular vs rapid -> when just measuring the performance of doing the same estimation 4000 times:
@@ -770,3 +772,123 @@ IndentationError: unexpected indent
  *
 
 */
+
+// PeakPicker Maxima vs standard -> speedtest
+/* 
+  std::vector<PeakPickerMaxima::PeakCandidate> pc;
+  PeakPickerMaxima(1.0).findMaxima(cptr->getTimeArray()->data, cptr->getIntensityArray()->data, pc);
+  pks += pc.size();
+ * Use // -rt_extraction_window -1
+ *  peaks 0
+ *  -- done [took 17.52 s (CPU), 18.47 s (Wall)] -- 
+ *
+    MSChromatogram<ChromatogramPeak> other;
+    PeakPickerHiRes().pick(chromatogram_old, other);
+    pks += other.size();
+
+ peaks 354681
+   -- done [took 36.66 s (CPU), 37.70 s (Wall)] -- 
+ *
+ * result = ca 9.1 seconds time
+ *
+ *
+  std::vector<PeakPickerMaxima::PeakCandidate> pc;
+  PeakPickerMaxima(1.0).pick(cptr->getTimeArray()->data, cptr->getIntensityArray()->data, pc);
+  pks += pc.size();
+  peaks 360842
+   -- done [took 22.42 s (CPU), 23.41 s (Wall)] -- 
+ *
+ * result = ca 4.9 seconds time (of which 1.3 seconds are GSL time)
+ *
+ *
+
+
+
+ * empty to do 14310 pickings: 
+ * -- done [took 4.29 s (CPU), 4.38 s (Wall)] --
+ *
+-- done [took 8.19 s (CPU), 8.33 s (Wall)] -- 
+--> time for picking is 3.9 seconds
+
+std::vector<PeakPickerMaxima::PeakCandidate> pc;
+PeakPickerMaxima(1.0).pick(cptr->getTimeArray()->data, cptr->getIntensityArray()->data, pc);
+pks += pc.size();
+
+
+--> time for picking is 14.0 seconds
+-- done [took 17.99 s (CPU), 18.20 s (Wall)] -- 
+
+MSChromatogram<ChromatogramPeak> other;
+PeakPickerHiRes().pick(chromatogram_old, other);
+pks += other.size();
+
+*/
+
+// Full analysis using a large library -> speed is up to 30k transitions / minute
+/*
+ *
+ *
+ * using strep, on the debug build I have  using the nf values
+ *  will score 14310 chromatograms
+ *  -- done [took 02:01 m (CPU), 02:02 m (Wall)] --
+ * or 7k transitions / minute
+ *
+
+ ./bin/OpenSwathWorkflow -in data/split_*_[8].nf.pp.mzML.gz -rt_norm split_napedro_L120420_010_SW-400AQUA.rtnorm.trafoXML  
+  -tr /media/data/tmp/oge_plus_shotgun_only_300_fixed_decoy.csv -out_tsv legacy_smallstrep.csv
+ real    2m24.533s
+ user    2m23.277s
+ sys     0m0.672s
+ $ wc legacy_smallstrep.csv
+    2422  121100 2337568 legacy_smallstrep.csv
+
+
+
+    As soon as we go to full swath files, it drops to 1.6k transitions / minute
+    but also there are many more features (7 per peakgroup)
+
+    ./bin/OpenSwathWorkflow -in /media/data/tmp/split_napedro/split_napedro_L120420_010_SW-400AQUA__human_2ul_dilution_1_13.mzML.gz -rt_norm split_napedro_L120420_010_SW-400AQUA.rtnorm.trafoXML   -tr /media/data/tmp/oge_plus_shotgun_only_300_fixed_decoy.csv -out_tsv legacy_smallstrep.csv  -readOptions cache
+
+ $ wc legacy_smallstrep.csv
+   11620   581000 11504158 legacy_smallstrep.csv
+
+
+   load file 1.3 GB
+   will extract 9718 chromatograms
+   will score 9718 chromatograms
+   -- done [took 05:47 m (CPU), 05:49 m (Wall)] -- 
+   OpenSwathWorkflow took 07:40 m (wall), 07:35 m (CPU), 0.00 s (system), 07:35 m (user).
+
+   real    7m40.504s
+   user    7m35.332s
+
+   full strep library, full swathes
+   with cache readoptions -> only 48 MB memory while caching, 180 MB while loading TraML, 212 MB while scoring
+   -- done [took 05:18 m (CPU), 05:24 m (Wall)] --
+   OpenSwathWorkflow took 07:40 m (wall), 07:13 m (CPU), 0.00 s (system), 07:13 m (user).
+
+   real    7m40.630s
+   user    7m13.579s
+   sys     0m5.548s
+
+   -- optimized
+    will score 9718 chromatograms
+    -- done [took 01:58 m (CPU), 02:03 m (Wall)] -- 
+    OpenSwathWorkflow took 04:13 m (wall), 02:55 m (CPU), 0.00 s (system), 02:55 m (user).
+
+    without DIA scores
+    -- done [took 01:40 m (CPU), 01:41 m (Wall)] -- 
+    OpenSwathWorkflow took 02:54 m (wall), 02:35 m (CPU), 0.00 s (system), 02:35 m (user).
+
+    without EMG scoring and w/o DIA scoring -> 30k transitions / minute
+    will extract 9718 chromatograms
+    will score 9718 chromatograms
+    -- done [took 21.47 s (CPU), 22.03 s (Wall)] -- 
+    OpenSwathWorkflow took 01:43 m (wall), 01:17 m (CPU), 0.00 s (system), 01:17 m (user).
+
+    Datareduction:
+      - takes about 03:29 minutes for the regular reduce
+      - takes about 2:51 minutes for the iterative reduce
+
+*/
+

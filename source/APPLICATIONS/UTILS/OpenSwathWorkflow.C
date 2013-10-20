@@ -586,6 +586,13 @@ namespace OpenMS
       endProgress();
       return swath_maps;
     }
+
+    std::vector< SwathMap > load_files_from_single_mzxml(String file, String tmp, 
+      boost::shared_ptr<ExperimentalSettings>& /* exp_meta */, String readoptions="normal")
+    {
+      throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+          "MzXML not supported");
+    }
   };
 
     void selectChrom_(const MSChromatogram<ChromatogramPeak>& chromatogram_old, 
@@ -1201,7 +1208,7 @@ protected:
   void registerOptionsAndFlags_()
   {
     registerInputFileList_("in", "<files>", StringList(), "Input files separated by blank");
-    setValidFormats_("in", StringList::create("mzML"));
+    setValidFormats_("in", StringList::create("mzML,mzXML"));
 
     registerInputFile_("tr", "<file>", "", "transition file ('TraML' or 'csv')");
     setValidFormats_("tr", StringList::create("csv,traML"));
@@ -1353,7 +1360,18 @@ protected:
     boost::shared_ptr<ExperimentalSettings > exp_meta(new ExperimentalSettings);
     std::vector< SwathMap > swath_maps;
     if (split_file || file_list.size() > 1) swath_maps = sml.load_files(file_list, tmp, exp_meta, readoptions);
-    else swath_maps = sml.load_files_from_single(file_list[0], tmp, exp_meta, readoptions);
+    else 
+    {
+      FileTypes::Type in_file_type = FileTypes::nameToType(file_list[0]);
+      if (tr_file_type == FileTypes::MZML || tr_file.suffix(4).toLower() == "mzml"  )
+      {
+        swath_maps = sml.load_files_from_single(file_list[0], tmp, exp_meta, readoptions);
+      }
+      else if (tr_file_type == FileTypes::MZXML || tr_file.suffix(4).toLower() == "mzxml"  )
+      {
+        swath_maps = sml.load_files_from_single_mzxml(file_list[0], tmp, exp_meta, readoptions);
+      }
+    }
 
     // Get the trafo information
     TransformationDescription trafo_rtnorm;

@@ -88,6 +88,33 @@ using namespace OpenMS;
 namespace OpenMS 
 {
 
+  void analyzeFullSwath(boost::shared_ptr<MSExperiment<Peak1D> > exp, std::vector<int> & swath_counter_, int & nr_ms1_spectra)
+  {
+    int ms1_counter_ = 0;
+    int ms2_counter_ = 0;
+    for (Size i = 0; i < exp->getSpectra().size(); i++)
+    {
+      const MSSpectrum<> & s = (*exp)[i];
+      {
+        if (s.getMSLevel() == 1)
+        {
+          ms2_counter_ = 0;
+          ms1_counter_++;
+        }
+        else 
+        {
+          if (ms2_counter_ == swath_counter_.size())
+          {
+            swath_counter_.push_back(0);
+          }
+          swath_counter_[ms2_counter_]++;
+          ms2_counter_++;
+        }
+      }
+    }
+    nr_ms1_spectra = ms1_counter_;
+  }
+
   struct SwathMap
   {
     OpenSwath::SpectrumAccessPtr sptr;
@@ -281,6 +308,7 @@ namespace OpenMS
 
     ~CachedSwathFileLoader() 
     { 
+      // Properly delete the CachedMzMLConsumers -> free memory and _close_ filestream
       while(!swath_consumers_.empty()) delete swath_consumers_.back(), swath_consumers_.pop_back();
       if (ms1_consumer_ != NULL) delete ms1_consumer_;
     }
@@ -500,6 +528,58 @@ namespace OpenMS
           setProgress(progress++);
         }
       }
+      endProgress();
+      return swath_maps;
+    }
+
+    std::vector< SwathMap > load_files_from_single(String file, String tmp, 
+      boost::shared_ptr<ExperimentalSettings>& /* exp_meta */, String readoptions="normal")
+    {
+      // TODO how to transfer the experimental settings here ... 
+      int progress = 0;
+      startProgress(0, 1, "Loading data file " + file);
+      std::vector< SwathMap > swath_maps;
+      FullSwathFileLoader * dataConsumer;
+      String tmp_fname = "openswath_tmpfile";
+
+      boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
+      OpenSwath::SpectrumAccessPtr spectra_ptr;
+      SwathMap swath_map;
+
+      if (readoptions == "normal")
+      {
+        dataConsumer = new RegularSwathFileLoader();
+        MzMLFile().transform(file, dataConsumer, *exp.get());
+      }
+      else if (readoptions == "cache")
+      {
+
+        boost::shared_ptr<MSExperiment<Peak1D> > experiment_metadata(new MSExperiment<Peak1D>);
+        // First pass through the file -> get the meta data
+        {
+          MzMLFile f;
+          f.getOptions().setAlwaysAppendData(true);
+          f.getOptions().setFillData(false);
+          f.load(file, *experiment_metadata);
+        }
+
+        std::vector<int> swath_counter;
+        int nr_ms1_spectra;
+        analyzeFullSwath(experiment_metadata, swath_counter, nr_ms1_spectra);
+
+        dataConsumer = new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter);
+        MzMLFile().transform(file, dataConsumer, *exp.get());
+      }
+      //else if (readoptions == "reduce") { }
+      //else if (readoptions == "reduce_iterative") { }
+      else
+      {
+        throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+            "Unknown or unsupported option " + readoptions);
+      }
+      dataConsumer->retrieveSwathMaps(swath_maps);
+      delete dataConsumer;
+
       endProgress();
       return swath_maps;
     }
@@ -1147,8 +1227,8 @@ protected:
     registerDoubleOption_("min_rsq", "<double>", 0.95, "Minimum r-squared of RT peptides regression", false);
     registerDoubleOption_("min_coverage", "<double>", 0.6, "Minimum relative amount of RT peptides to keep", false);
 
-    registerFlag_("is_swath", "Set this flag if the data is SWATH data");
     registerFlag_("ppm", "extraction_window is in ppm");
+    registerFlag_("split_file_input", "The input files each contain one single SWATH (alternatively: all SWATH are in separate files)");
 
     registerStringOption_("readOptions", "<name>", "normal", "Whether to run OpenSWATH directly on the input data, cache data to disk first or to perform a datareduction step first", false);
     setValidStrings_("readOptions", StringList::create("normal,cache,reduce,reduce_iterative"));
@@ -1233,6 +1313,7 @@ protected:
 
     String out_chrom = getStringOption_("out_chrom");
     bool ppm = getFlag_("ppm");
+    bool split_file = getFlag_("split_file_input");
     DoubleReal min_upper_edge_dist = getDoubleOption_("min_upper_edge_dist");
     DoubleReal extraction_window = getDoubleOption_("extraction_window");
     DoubleReal rt_extraction_window = getDoubleOption_("rt_extraction_window");
@@ -1267,7 +1348,9 @@ protected:
     SwathMapLoader sml;
     sml.setLogType(log_type_);
     boost::shared_ptr<ExperimentalSettings > exp_meta(new ExperimentalSettings);
-    std::vector< SwathMap > swath_maps = sml.load_files(file_list, tmp, exp_meta, readoptions);
+    std::vector< SwathMap > swath_maps;
+    if (split_file || file_list.size() > 1) swath_maps = sml.load_files(file_list, tmp, exp_meta, readoptions);
+    else swath_maps = sml.load_files_from_single(file_list[0], tmp, exp_meta, readoptions);
 
     // Get the trafo information
     TransformationDescription trafo_rtnorm;

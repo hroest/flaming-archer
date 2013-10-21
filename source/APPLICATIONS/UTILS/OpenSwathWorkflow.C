@@ -902,6 +902,7 @@ protected:
       if (write_to_stream) output.clear();
       featureFinder.scorePeakgroups(transition_group, trafo, swath_map, output);
 
+      // TODO write to stream *outside* the loop (better for parallelization ... )
 #ifdef _OPENMP
 #pragma omp critical (scoreAll)
 #endif
@@ -1325,7 +1326,11 @@ protected:
       feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:sgolay_frame_length", 9);
       feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:peak_width", -1.0);
       feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:remove_overlapping_peaks", "true");
+      // TODO it seems that the legacy method produces slightly larger peaks, e.g. it will not cut off peaks too early
+      // however the same can be achieved by using a relatively low SN cutoff in the -Scoring:TransitionGroupPicker:PeakPickerMRM:signal_to_noise 0.5
       feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:method", "corrected");
+      feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:signal_to_noise", 0.1);
+      feature_finder_param.setValue("TransitionGroupPicker:PeakPickerMRM:gauss_width", 30);
       feature_finder_param.remove("TransitionGroupPicker:PeakPickerMRM:gauss_width");
       feature_finder_param.remove("TransitionGroupPicker:PeakPickerMRM:sn_win_len");
       feature_finder_param.remove("TransitionGroupPicker:PeakPickerMRM:sn_bin_count");

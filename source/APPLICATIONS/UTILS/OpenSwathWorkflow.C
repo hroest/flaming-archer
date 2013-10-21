@@ -180,6 +180,8 @@ namespace OpenMS
     void setExpectedSize(Size, Size) {}
     void setExperimentalSettings(ExperimentalSettings& exp) {settings_ = exp;}
 
+    // Populate the vector of swath maps with the MS1 map (if present) and the
+    // MS2 maps (SWATH maps)
     void retrieveSwathMaps(std::vector< SwathMap > & maps)
     {
       ensureMapsAreFilled();
@@ -624,52 +626,39 @@ namespace OpenMS
 
       if (readoptions == "normal")
       {
-        //dataConsumer = new RegularSwathFileLoader();
-        // MzMLFile().transform(file, dataConsumer, *exp.get());
-        // MSDataReader
+        /*
+        dataConsumer = new RegularSwathFileLoader();
+        MzMLFile().transform(file, dataConsumer, *exp.get());
+        */
+        dataConsumer = boost::shared_ptr<RegularSwathFileLoader>( new RegularSwathFileLoader() ) ; 
+        Internal::MSDataReader<FullSwathFileLoader> datareader;
+        datareader.setConsumer(dataConsumer);
+        MzXMLFile().load(file, datareader);
+
       }
       else if (readoptions == "cache")
       {
 
         boost::shared_ptr<MSExperiment<Peak1D> > experiment_metadata(new MSExperiment<Peak1D>);
-        // First pass through the file -> get the meta data
-        /*
-        {
-          MzMLFile f;
-          f.getOptions().setAlwaysAppendData(true);
-          f.getOptions().setFillData(false);
-          f.load(file, *experiment_metadata);
-        }
-        */
-
         std::vector<int> swath_counter;
         int nr_ms1_spectra;
+        {
+          boost::shared_ptr<MSDataTransformingConsumer> noopConsumer = boost::shared_ptr<MSDataTransformingConsumer>( new MSDataTransformingConsumer() ) ; 
+          Internal::MSDataReader<MSDataTransformingConsumer> datareader;
+          datareader.setConsumer(noopConsumer);
+          MzXMLFile().load(file, datareader);
+          analyzeFullSwath(datareader.getRealSpectra(), swath_counter, nr_ms1_spectra);
+        }
 
         /*
-        MzXMLFile f;
-        Internal::MSDataCounterReserve<Peak1D> exp_cnt;
-        //f.getOptions().addMSLevel(-1);
-        f.load(in, exp_cnt);
+        std::cout << " read using the NOOP consumer with MS1 "<<  nr_ms1_spectra << " and MS2 "<< swath_counter.size() << std::endl;
+        for (Size i = 0; i < swath_counter.size(); i++) { std::cout  << swath_counter[i] << std::endl; }
+
         */
-
-
-        // Result contained in exp_cnt.spectraCounts and exp_cnt.chromatogramCounts
-
-          // Result contained in exp_cnt.spectraCounts and exp_cnt.chromatogramCounts
-        analyzeFullSwath(experiment_metadata, swath_counter, nr_ms1_spectra);
-        for (int i = 0; i < 32; i++)
-        {
-          swath_counter.push_back(100/32 + 1 );
-        }
-        nr_ms1_spectra = 100 / 32 + 1;
-
-        //boost::shared_ptr<> experiment_metadata(new MSExperiment<Peak1D>);
-
         dataConsumer = boost::shared_ptr<CachedSwathFileLoader>( new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter) ) ; 
         Internal::MSDataReader<FullSwathFileLoader> datareader;
         datareader.setConsumer(dataConsumer);
         MzXMLFile().load(file, datareader);
-        //MzMLFile().transform(file, dataConsumer, *exp.get());
       }
       //else if (readoptions == "reduce") { }
       //else if (readoptions == "reduce_iterative") { }
@@ -680,7 +669,7 @@ namespace OpenMS
       }
       dataConsumer->retrieveSwathMaps(swath_maps);
       std::cout << "Retrieved " << swath_maps.size() << " SWATH maps:" << std::endl;
-      for (Size i = 0; i < swath_maps.size(); i++) {std::cout << swath_maps[0].lower << "\tto\t" << swath_maps[0].upper << std::endl;}
+      for (Size i = 0; i < swath_maps.size(); i++) {std::cout << swath_maps[i].lower << "\tto\t" << swath_maps[i].upper << std::endl;}
       //delete dataConsumer;
 
       endProgress();

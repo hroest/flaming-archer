@@ -786,27 +786,27 @@ namespace OpenMS
     }
   };
 
-    void selectChrom_(const MSChromatogram<ChromatogramPeak>& chromatogram_old, 
-      MSSpectrum<ChromatogramPeak>& chromatogram, double rt_extraction_window, double center_rt)
+  void selectChrom_(const MSChromatogram<ChromatogramPeak>& chromatogram_old, 
+    MSSpectrum<ChromatogramPeak>& chromatogram, double rt_extraction_window, double center_rt)
+  {
+    double rt_max = center_rt + rt_extraction_window;
+    double rt_min = center_rt - rt_extraction_window;
+    for (MSChromatogram<ChromatogramPeak>::const_iterator it = chromatogram_old.begin(); it != chromatogram_old.end(); ++it)
     {
-      double rt_max = center_rt + rt_extraction_window;
-      double rt_min = center_rt - rt_extraction_window;
-      for (MSChromatogram<ChromatogramPeak>::const_iterator it = chromatogram_old.begin(); it != chromatogram_old.end(); ++it)
+      if (rt_extraction_window >= 0 && (it->getRT() < rt_min || it->getRT() > rt_max))
       {
-        if (rt_extraction_window >= 0 && (it->getRT() < rt_min || it->getRT() > rt_max))
-        {
-          continue;
-        }
-        ChromatogramPeak peak;
-        peak.setMZ(it->getRT());
-        peak.setIntensity(it->getIntensity());
-        chromatogram.push_back(peak);
+        continue;
       }
-      if (chromatogram.empty())
-      {
-        std::cerr << "Error: Could not find any points for chromatogram " + chromatogram.getNativeID() + \
-        ". Maybe your retention time transformation is off?" << std::endl;
-      }
+      ChromatogramPeak peak;
+      peak.setMZ(it->getRT());
+      peak.setIntensity(it->getIntensity());
+      chromatogram.push_back(peak);
+    }
+    if (chromatogram.empty())
+    {
+      std::cerr << "Error: Could not find any points for chromatogram " + chromatogram.getNativeID() + \
+      ". Maybe your retention time transformation is off?" << std::endl;
+    }
   }
 
   // TODO shared code!! -> OpenSwathRTNormalizer...
@@ -840,41 +840,15 @@ namespace OpenMS
       pairs.push_back(std::make_pair(bestRT, PeptideRTMap[pepref]));
     }
   }
+
 }
 
-//-------------------------------------------------------------
-//Doxygen docu
-//-------------------------------------------------------------
-
-/**
-  @page TOPP_OpenSwathWorkflow Workflow
-
-  @brief Complete workflow to run OpenSWATH
-
-*/
-
-// We do not want this class to show up in the docu:
-/// @cond TOPPCLASSES
-class TOPPOpenSwathWorkflow 
-  : public TOPPBase
+namespace OpenMS 
 {
-public:
-
-  TOPPOpenSwathWorkflow() 
-    : TOPPBase("OpenSwathWorkflow", "Complete workflow to run OpenSWATH", true)
+  class OPENMS_DLLAPI OpenSwathWorkflow :
+    public ProgressLogger
   {
-  }
-
-protected:
-
-  typedef MSSpectrum<ChromatogramPeak> RichPeakChromatogram; // this is the type in which we store the chromatograms for this analysis
-  typedef OpenSwath::LightTransition TransitionType;
-  typedef OpenSwath::LightTargetedExperiment TargetedExpType;
-  typedef OpenSwath::LightPeptide PeptideType;
-  typedef OpenSwath::LightProtein ProteinType;
-  typedef OpenSwath::LightModification ModificationType;
-  typedef MRMTransitionGroup<MSSpectrum <ChromatogramPeak>, TransitionType> MRMTransitionGroupType; // a transition group holds the MSSpectra with the Chromatogram peaks from above
-  typedef std::map<String, MRMTransitionGroupType> TransitionGroupMapType;
+  public:
 
   void prepare_coordinates(std::vector< OpenSwath::ChromatogramPtr > & output_chromatograms,
     std::vector< ChromatogramExtractorAlgorithm::ExtractionCoordinates > & coordinates,
@@ -932,12 +906,19 @@ protected:
     std::sort(coordinates.begin(), coordinates.end(), ChromatogramExtractor::ExtractionCoordinates::SortExtractionCoordinatesByMZ);
   }
 
-  void scoreAll_(OpenSwath::SpectrumAccessPtr input,
+  void scoreAllChromatograms(OpenSwath::SpectrumAccessPtr input,
          OpenSwath::SpectrumAccessPtr swath_map,
-         TargetedExpType& transition_exp, 
+         OpenSwath::LightTargetedExperiment& transition_exp, 
          TransformationDescription trafo, double rt_extraction_window, 
          FeatureMap<Feature>& output, Param& feature_finder_param, std::ostream &os, bool write_to_stream)
   {
+    typedef OpenSwath::LightTransition TransitionType;
+    // a transition group holds the MSSpectra with the Chromatogram peaks from above
+    typedef MRMTransitionGroup<MSSpectrum <ChromatogramPeak>, TransitionType> MRMTransitionGroupType; 
+    typedef std::map<String, MRMTransitionGroupType> TransitionGroupMapType;
+    // this is the type in which we store the chromatograms for this analysis
+    typedef MSSpectrum<ChromatogramPeak> RichPeakChromatogram; 
+
     double expected_rt;
     TransformationDescription trafo_inv = trafo;
     trafo_inv.invert();
@@ -1041,9 +1022,7 @@ protected:
           std::vector< OpenMS::MSChromatogram<> > chromatograms, double min_rsq, double min_coverage, 
           Param feature_finder_param)
   {
-    ProgressLogger progresslogger;
-    progresslogger.setLogType(log_type_);
-    progresslogger.startProgress(0, 1, "Retention time normalization");
+    this->startProgress(0, 1, "Retention time normalization");
 
     OpenSwath::LightTargetedExperiment targeted_exp;
     OpenSwathDataAccessHelper::convertTargetedExp(transition_exp_, targeted_exp);
@@ -1095,7 +1074,7 @@ protected:
     String model_type = "linear";
     trafo_out.fitModel(model_type, model_params);
 
-    progresslogger.endProgress();
+    this->endProgress();
     return trafo_out;
   }
 
@@ -1152,17 +1131,17 @@ protected:
    * 
    * 1. OpenSwathHelper::selectSwathTransitions
    * 2. ChromatogramExtractor prpare, extract
-   * 3. scoreAll_
+   * 3. scoreAllChromatograms
    *
   */
   void extractAndScore(const std::vector< SwathMap > & swath_maps,
     const TransformationDescription trafo,
-    ChromExtractParams cp, OpenSwath::LightTargetedExperiment& transition_exp, String out, 
+    ChromExtractParams cp, OpenSwath::LightTargetedExperiment& transition_exp, 
+    FeatureMap<>& out_featureFile, String out,
     Param& feature_finder_param, String out_tsv, 
     MSDataWritingConsumer * chromConsumer, int batchSize)
   {
 
-    
     std::ofstream os(out_tsv.c_str());
     if (!out_tsv.empty())
     {
@@ -1172,13 +1151,11 @@ protected:
     TransformationDescription trafo_inverse = trafo;
     trafo_inverse.invert();
 
-    ProgressLogger progresslogger;
-    progresslogger.setLogType(log_type_);
 
-    std::cout << "Will analyze " << transition_exp_used_all.getTransitions().size() << " transitions in total." << std::endl;
+    std::cout << "Will analyze " << transition_exp.getTransitions().size() << " transitions in total." << std::endl;
     int progress = 0;
-    progresslogger.startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
-    FeatureMap<> out_featureFile;
+    this->startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
+    
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
@@ -1252,7 +1229,7 @@ protected:
 
         // Step 3: score these extracted transitions
         FeatureMap<> featureFile;
-        scoreAll_(chromatogram_ptr, swath_maps[i].sptr, transition_exp_used, trafo,
+        scoreAllChromatograms(chromatogram_ptr, swath_maps[i].sptr, transition_exp_used, trafo,
             cp.rt_extraction_window, featureFile, feature_finder_param, os, !out_tsv.empty());
 
         // write all features and the protein identifications from tmp_featureFile into featureFile
@@ -1273,20 +1250,43 @@ protected:
           {
             out_featureFile.getProteinIdentifications().push_back(*protid_it);
           }
-          progresslogger.setProgress(progress++);
+          this->setProgress(progress++);
         }
       }
 
     }
-
-    if (!out.empty())
-    {
-      addDataProcessing_(out_featureFile, getProcessingInfo_(DataProcessing::QUANTITATION));
-      out_featureFile.ensureUniqueId();
-      FeatureXMLFile().store(out, out_featureFile);
-    }
-    progresslogger.endProgress();
+    this->endProgress();
   }
+
+
+  };
+
+}
+
+//-------------------------------------------------------------
+//Doxygen docu
+//-------------------------------------------------------------
+
+/**
+  @page TOPP_OpenSwathWorkflow Workflow
+
+  @brief Complete workflow to run OpenSWATH
+
+*/
+
+// We do not want this class to show up in the docu:
+/// @cond TOPPCLASSES
+class TOPPOpenSwathWorkflow 
+  : public TOPPBase
+{
+public:
+
+  TOPPOpenSwathWorkflow() 
+    : TOPPBase("OpenSwathWorkflow", "Complete workflow to run OpenSWATH", true)
+  {
+  }
+
+protected:
 
   void registerOptionsAndFlags_()
   {
@@ -1325,6 +1325,8 @@ protected:
 
     registerStringOption_("readOptions", "<name>", "normal", "Whether to run OpenSWATH directly on the input data, cache data to disk first or to perform a datareduction step first", false);
     setValidStrings_("readOptions", StringList::create("normal,cache,reduce,reduce_iterative"));
+
+    registerStringOption_("tempDirectory", "<tmp>", "/tmp/", "Temporary directory to store cached files for example", false);
 
     registerStringOption_("extraction_function", "<name>", "tophat", "Function used to extract the signal", false);
     setValidStrings_("extraction_function", StringList::create("tophat,bartlett"));
@@ -1399,6 +1401,10 @@ protected:
   */
   ExitCodes main_(int, const char **)
   {
+
+    ///////////////////////////////////
+    // Prepare Parameters
+    ///////////////////////////////////
     StringList file_list = getStringList_("in");
     String tr_file = getStringOption_("tr");
 
@@ -1418,9 +1424,10 @@ protected:
     int batchSize = (int)getIntOption_("batchSize");
 
     String readoptions = getStringOption_("readOptions");
+    String tmp = getStringOption_("tempDirectory");
 
-    String tmp = "/tmp/";
-    double irt_extraction_window = -1;
+    OpenSwathWorkflow wf;
+    wf.setLogType(log_type_);
 
     if (trafo_in.empty() && irt_tr_file.empty()) 
           throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
@@ -1429,19 +1436,21 @@ protected:
           throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
               "Either out_features or out_tsv needs to be set");
 
-    ChromExtractParams cp;
+    OpenSwathWorkflow::ChromExtractParams cp;
     cp.min_upper_edge_dist   = min_upper_edge_dist;
     cp.extraction_window     = extraction_window;
     cp.ppm                   = ppm;
     cp.rt_extraction_window  = rt_extraction_window, 
     cp.extraction_function   = extraction_function;
 
-    ChromExtractParams cp_irt = cp;
-    cp_irt.rt_extraction_window = irt_extraction_window;
+    OpenSwathWorkflow::ChromExtractParams cp_irt = cp;
+    cp_irt.rt_extraction_window = -1; // extract the whole RT range
 
     Param feature_finder_param = getParam_().copy("Scoring:", true);
 
+    ///////////////////////////////////
     // Load the SWATH files
+    ///////////////////////////////////
     SwathMapLoader sml;
     sml.setLogType(log_type_);
     boost::shared_ptr<ExperimentalSettings > exp_meta(new ExperimentalSettings);
@@ -1453,11 +1462,13 @@ protected:
     else 
     {
       FileTypes::Type in_file_type = FileTypes::nameToType(file_list[0]);
-      if (in_file_type == FileTypes::MZML || file_list[0].suffix(4).toLower() == "mzml"  )
+      if (in_file_type == FileTypes::MZML || file_list[0].suffix(4).toLower() == "mzml"  
+        || file_list[0].suffix(7).toLower() == "mzml.gz"  )
       {
         swath_maps = sml.load_files_from_single(file_list[0], tmp, exp_meta, readoptions);
       }
-      else if (in_file_type == FileTypes::MZXML || file_list[0].suffix(5).toLower() == "mzxml"  )
+      else if (in_file_type == FileTypes::MZXML || file_list[0].suffix(5).toLower() == "mzxml"  
+        || file_list[0].suffix(8).toLower() == "mzxml.gz"  )
       {
         swath_maps = sml.load_files_from_single_mzxml(file_list[0], tmp, exp_meta, readoptions);
       }
@@ -1468,7 +1479,9 @@ protected:
       }
     }
 
-    // Get the trafo information
+    ///////////////////////////////////
+    // Get the transformation information (using iRT peptides)
+    ///////////////////////////////////
     TransformationDescription trafo_rtnorm;
     if (trafo_in.size() > 0) 
     {
@@ -1492,18 +1505,20 @@ protected:
 
       // Extracting the iRT file
       std::vector< OpenMS::MSChromatogram<> > irt_chromatograms;
-      simpleExtractChromatograms(swath_maps, irt_transitions, irt_chromatograms, cp_irt);
+      wf.simpleExtractChromatograms(swath_maps, irt_transitions, irt_chromatograms, cp_irt);
 #ifdef DEBUG_OPENSWATHWORKFLOW
       std::cout << "Extracted iRT files: " << irt_chromatograms.size() <<  std::endl;
 #endif
       // get RT normalization from data
       DoubleReal min_rsq = getDoubleOption_("min_rsq");
       DoubleReal min_coverage = getDoubleOption_("min_coverage");
-      trafo_rtnorm = RTNormalization(irt_transitions,
+      trafo_rtnorm = wf.RTNormalization(irt_transitions,
               irt_chromatograms, min_rsq, min_coverage, feature_finder_param);
     }
 
+    ///////////////////////////////////
     // Load the transitions
+    ///////////////////////////////////
     OpenSwath::LightTargetedExperiment transition_exp;
     ProgressLogger progresslogger;
     progresslogger.setLogType(log_type_);
@@ -1527,7 +1542,9 @@ protected:
     }
     progresslogger.endProgress();
 
+    ///////////////////////////////////
     // Set up chrom.mzML output
+    ///////////////////////////////////
     MSDataWritingConsumer * chromConsumer;
     if (!out_chrom.empty())
     {
@@ -1541,9 +1558,18 @@ protected:
       chromConsumer = new NoopMSDataWritingConsumer(out_chrom);
     }
 
+    ///////////////////////////////////
     // Extract and score
-    extractAndScore(swath_maps, trafo_rtnorm, cp, transition_exp, out, 
+    ///////////////////////////////////
+    FeatureMap<> out_featureFile;
+    wf.extractAndScore(swath_maps, trafo_rtnorm, cp, transition_exp, out_featureFile, out,
         feature_finder_param, out_tsv, chromConsumer, batchSize);
+    if (!out.empty())
+    {
+      addDataProcessing_(out_featureFile, getProcessingInfo_(DataProcessing::QUANTITATION));
+      out_featureFile.ensureUniqueId();
+      FeatureXMLFile().store(out, out_featureFile);
+    }
 
     delete chromConsumer;
 

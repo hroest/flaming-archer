@@ -1170,7 +1170,6 @@ protected:
         size_t start = j*batch_size;
         size_t end = j*batch_size+batch_size;
         if (end > transition_exp_used_all.getTransitions().size() ) end = transition_exp_used_all.getTransitions().size();
-        std::cout << "doing batch " << start << " to " << end << std::endl;
 
         // Create the new, batch-size transition experiment
         OpenSwath::LightTargetedExperiment transition_exp_used;
@@ -1202,7 +1201,6 @@ protected:
           }
         }
 
-        std::cout << " will extract " << coordinates.size() << " chromatograms" << std::endl;
         // Step 2.2: extract chromatograms
         extractor.extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
             cp.ppm, cp.extraction_function);
@@ -1220,7 +1218,6 @@ protected:
         chrom_tmp->setChromatograms(chromatograms);
         OpenSwath::SpectrumAccessPtr chromatogram_ptr = OpenSwath::SpectrumAccessPtr(new OpenMS::SpectrumAccessOpenMS(chrom_tmp));
 
-        std::cout << " will score " << coordinates.size() << " chromatograms" << std::endl;
         // Step 3: score these extracted transitions
         FeatureMap<> featureFile;
         scoreAll_(chromatogram_ptr, swath_maps[i].sptr, transition_exp_used, trafo,

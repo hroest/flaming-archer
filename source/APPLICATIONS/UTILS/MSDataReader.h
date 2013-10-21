@@ -88,10 +88,29 @@ namespace OpenMS
         ExperimentalSettings::operator=(ExperimentalSettings()); //reset meta info
       }
 
-      /// adds a spectrum to the consumer and keeps the meta-data (SpectrumSettings)
-      void addSpectrum(const MSSpectrum<PeakT> & spectrum)
+      void resize(size_t s) 
       {
+        if (this->spectra_.size() == 0)
+        {
+          MSSpectrum<PeakT> dummy;
+          this->spectra_.push_back(dummy);
+        }
+        else
+        {
+          // mzXML Handler uses resize to add a new spectrum ... very strange!
+          addSpectrum(this->spectra_.back());
+          this->spectra_.clear();
+          MSSpectrum<PeakT> dummy;
+          this->spectra_.push_back(dummy);
+        }
+      }
+
+      /// adds a spectrum to the consumer and keeps the meta-data (SpectrumSettings)
+      void addSpectrum(/* const  */MSSpectrum<PeakT> & spectrum)
+      {
+        std::cout << "got spectra, will consume it" << std::endl;
         consumer->consumeSpectrum(spectrum);
+        std::cout << "done" << std::endl;
 
         // We copy the meta-data of the spectrum
         MSSpectrum<PeakT> cpy = spectrum;
@@ -100,7 +119,7 @@ namespace OpenMS
       }
 
       /// adds a chromatogram to the consumer and keeps the meta-data (ChromatogramSettings)
-      void addChromatogram(const MSChromatogram<ChromatogramPeakT> & chromatogram)
+      void addChromatogram(/* const  */MSChromatogram<ChromatogramPeakT> & chromatogram)
       {
         consumer->consumeChromatogram(chromatogram);
 
@@ -123,6 +142,34 @@ namespace OpenMS
       }
 
       inline void setConsumer(boost::shared_ptr<ConsumerT> c) { consumer = c; }
+
+
+      // try these
+      virtual std::vector<MSSpectrum<PeakT> > & getSpectra() 
+      {
+        //std::cout << " Try to get spectra!  " << this->spectra_.size() << std::endl;
+        return this->spectra_;
+      }
+
+      MSSpectrum<PeakT>& operator[] (Size n)
+      {
+        return this->spectra_[n];
+      }
+
+      const MSSpectrum<PeakT>& operator[] (Size n) const
+      {
+        return this->spectra_[n];
+      }
+
+      virtual Size size() const
+      {
+        return this->spectra_.size(); 
+      }
+
+      virtual bool empty() const
+      {
+        return this->spectra_.empty(); 
+      }
 
     protected:
       boost::shared_ptr<ConsumerT> consumer;
@@ -162,8 +209,8 @@ namespace OpenMS
       inline void reserveSpaceSpectra(Size /* s */) {}
       void reset() {}
 
-      void addSpectrum(const MSSpectrum<PeakT> & /* spectrum */) { spectraCounts++; }
-      void addChromatogram(const MSChromatogram<ChromatogramPeakT> & /* chromatogram */) { chromatogramCounts++; }
+      void addSpectrum(/* const  */MSSpectrum<PeakT> & /* spectrum */) { spectraCounts++; }
+      void addChromatogram(/* const  */MSChromatogram<ChromatogramPeakT> & /* chromatogram */) { chromatogramCounts++; }
 
       Size spectraCounts;
       Size chromatogramCounts;
@@ -204,8 +251,8 @@ namespace OpenMS
       inline void reserveSpaceChromatograms(Size s) { chromatogramCounts = s; }
 
       void reset() {}
-      void addSpectrum(const MSSpectrum<PeakT> & /* spectrum */) {}
-      void addChromatogram(const MSChromatogram<ChromatogramPeakT> & /* chromatogram */) {}
+      void addSpectrum(/* const  */MSSpectrum<PeakT> & /* spectrum */) {}
+      void addChromatogram(/* const  */MSChromatogram<ChromatogramPeakT> & /* chromatogram */) {}
 
       Size spectraCounts;
       Size chromatogramCounts;

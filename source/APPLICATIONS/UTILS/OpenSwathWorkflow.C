@@ -1143,6 +1143,7 @@ protected:
     ProgressLogger progresslogger;
     progresslogger.setLogType(log_type_);
 
+    std::cout << "Will analyze " << transition_exp_used_all.getTransitions().size() << " transitions in total." << std::endl;
     int progress = 0;
     progresslogger.startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
     FeatureMap<> out_featureFile;
@@ -1159,32 +1160,9 @@ protected:
           cp.min_upper_edge_dist, swath_maps[i].lower, swath_maps[i].upper);
       if (transition_exp_used_all.getTransitions().size() == 0) { continue;}
 
-/*
- 
-
-   does not change:
-   22498 hr        20   0  231m  95m  22m R  100  1.2   2:04.97 OpenSwathWorkfl        
-
-   real    3m5.072s
-   user    3m3.527s
-   sys     0m0.588s
-
-
-
-   the non batch version does change:
-   22593 hr        20   0  623m 458m  22m R  100  5.8   1:47.71 OpenSwathWorkfl        
-  real    3m7.130s
-  user    3m5.740s
-  sys     0m0.616s
-
-
-
-*/
-      std::cout << "total transitions " << transition_exp_used_all.getTransitions().size() << std::endl;
       int batch_size;
       if (batchSize == 0) batch_size = transition_exp_used_all.getTransitions().size();
       else batch_size = batchSize;
-      //int batch_size = 1000;
       for (size_t j = 0; j < transition_exp_used_all.getTransitions().size() / batch_size; j++)
       {
 

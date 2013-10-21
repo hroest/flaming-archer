@@ -630,7 +630,7 @@ namespace OpenMS
         MzMLFile().transform(file, dataConsumer, *exp.get());
         */
         dataConsumer = boost::shared_ptr<RegularSwathFileLoader>( new RegularSwathFileLoader() ) ; 
-        Internal::MSDataReader<FullSwathFileLoader> datareader;
+        Internal::MSMzXMLDataReader<FullSwathFileLoader> datareader;
         datareader.setConsumer(dataConsumer);
         MzXMLFile().load(file, datareader);
 
@@ -643,19 +643,14 @@ namespace OpenMS
         int nr_ms1_spectra;
         {
           boost::shared_ptr<MSDataTransformingConsumer> noopConsumer = boost::shared_ptr<MSDataTransformingConsumer>( new MSDataTransformingConsumer() ) ; 
-          Internal::MSDataReader<MSDataTransformingConsumer> datareader;
+          Internal::MSMzXMLDataReader<MSDataTransformingConsumer> datareader;
           datareader.setConsumer(noopConsumer);
           MzXMLFile().load(file, datareader);
           analyzeFullSwath(datareader.getRealSpectra(), swath_counter, nr_ms1_spectra);
         }
 
-        /*
-        std::cout << " read using the NOOP consumer with MS1 "<<  nr_ms1_spectra << " and MS2 "<< swath_counter.size() << std::endl;
-        for (Size i = 0; i < swath_counter.size(); i++) { std::cout  << swath_counter[i] << std::endl; }
-
-        */
         dataConsumer = boost::shared_ptr<CachedSwathFileLoader>( new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter) ) ; 
-        Internal::MSDataReader<FullSwathFileLoader> datareader;
+        Internal::MSMzXMLDataReader<FullSwathFileLoader> datareader;
         datareader.setConsumer(dataConsumer);
         MzXMLFile().load(file, datareader);
       }

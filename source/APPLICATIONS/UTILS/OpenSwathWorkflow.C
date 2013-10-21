@@ -32,22 +32,29 @@
 // $Authors: Hannes Roest $
 // --------------------------------------------------------------------------
 
+// Interfaces
+#include <OpenMS/INTERFACES/IMSDataConsumer.h>
+
+// Consumers
+#include <OpenMS/FORMAT/DATAACCESS/MSDataCachedConsumer.h>
+#include <OpenMS/FORMAT/DATAACCESS/MSDataTransformingConsumer.h>
+#include <OpenMS/FORMAT/DATAACCESS/MSDataWritingConsumer.h>
+
 #include <OpenMS/APPLICATIONS/TOPPBase.h>
 #include <OpenMS/CONCEPT/Exception.h>
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 #include <assert.h>
+
+#include <OpenMS/KERNEL/MSExperiment.h>
 
 #include <OpenMS/ANALYSIS/OPENSWATH/CachedmzML.h>
 
 // files
 #include <OpenMS/FORMAT/TraMLFile.h>
 // #include <OpenMS/FORMAT/CachedMzMLFile.h>
-#include <OpenMS/FORMAT/DATAACCESS/MSDataCachedConsumer.h>
-#include <OpenMS/FORMAT/DATAACCESS/MSDataTransformingConsumer.h>
 #include <OpenMS/FORMAT/MzMLFile.h>
 #include <OpenMS/FORMAT/TransformationXMLFile.h>
 #include <OpenMS/ANALYSIS/OPENSWATH/TransitionTSVReader.h>
-#include <OpenMS/FORMAT/DATAACCESS/MSDataWritingConsumer.h>
 
 // helpers
 #include <OpenMS/ANALYSIS/OPENSWATH/OpenSwathHelper.h>
@@ -95,14 +102,16 @@ using namespace OpenMS;
 namespace OpenMS 
 {
 
-  void analyzeFullSwath(boost::shared_ptr<MSExperiment<Peak1D> > exp, std::vector<int> & swath_counter_, int & nr_ms1_spectra)
+  void analyzeFullSwath(const std::vector<MSSpectrum<> > exp, std::vector<int> & swath_counter_, int & nr_ms1_spectra)
   {
     int ms1_counter_ = 0;
     int ms2_counter_ = 0;
-    for (Size i = 0; i < exp->getSpectra().size(); i++)
+        std::cout << " got " << exp.size() << " spectra " << std::endl;  
+    for (Size i = 0; i < exp.size(); i++)
     {
-      const MSSpectrum<> & s = (*exp)[i];
+      const MSSpectrum<> & s = exp[i];
       {
+        std::cout << " spectrum " << i << " has ms level " << s.getMSLevel() << std::endl;  
         if (s.getMSLevel() == 1)
         {
           ms2_counter_ = 0;
@@ -575,7 +584,7 @@ namespace OpenMS
 
         std::vector<int> swath_counter;
         int nr_ms1_spectra;
-        analyzeFullSwath(experiment_metadata, swath_counter, nr_ms1_spectra);
+        analyzeFullSwath(experiment_metadata->getSpectra(), swath_counter, nr_ms1_spectra);
 
         dataConsumer = new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter);
         MzMLFile().transform(file, dataConsumer, *exp.get());

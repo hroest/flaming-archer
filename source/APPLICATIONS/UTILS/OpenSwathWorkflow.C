@@ -1172,8 +1172,13 @@ namespace OpenMS
       if (transition_exp_used_all.getTransitions().size() == 0) { continue;}
 
       int batch_size;
-      if (batchSize == 0) batch_size = transition_exp_used_all.getTransitions().size();
-      else batch_size = batchSize;
+      if (batchSize == 0) {batch_size = transition_exp_used_all.getTransitions().size();}
+      else {batch_size = batchSize;}
+#ifdef _OPENMP
+#pragma omp critical (featureFinder)
+#endif
+      { std::cout << "Will analyze " << transition_exp_used_all.getTransitions().size() << 
+        " transitions from SWATH " << i << " in batches of " << batch_size << std::endl; }
       for (size_t j = 0; j < transition_exp_used_all.getTransitions().size() / batch_size; j++)
       {
 

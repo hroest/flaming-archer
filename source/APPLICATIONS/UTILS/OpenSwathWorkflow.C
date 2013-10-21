@@ -1439,7 +1439,6 @@ protected:
     std::vector< SwathMap > swath_maps;
     if (split_file || file_list.size() > 1)
     {
-      std::cout << "load split" << std::endl;
       swath_maps = sml.load_files(file_list, tmp, exp_meta, readoptions);
     }
     else 
@@ -1447,24 +1446,18 @@ protected:
       FileTypes::Type in_file_type = FileTypes::nameToType(file_list[0]);
       if (in_file_type == FileTypes::MZML || file_list[0].suffix(4).toLower() == "mzml"  )
       {
-        std::cout << "mzml " << std::endl;
         swath_maps = sml.load_files_from_single(file_list[0], tmp, exp_meta, readoptions);
       }
       else if (in_file_type == FileTypes::MZXML || file_list[0].suffix(5).toLower() == "mzxml"  )
       {
-        std::cout << "mzxml " << std::endl;
         swath_maps = sml.load_files_from_single_mzxml(file_list[0], tmp, exp_meta, readoptions);
       }
       else
       {
-        std::cout << "none! " << std::endl;
-        std::cout << in_file_type << std::endl;
+        throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+            "Input file needs to have ending mzML or mzXML");
       }
     }
-
-    std::cout << "Nr swath maps " << swath_maps.size() << std::endl;
-    std::cout << "First swath map " << swath_maps[0].lower << " to " << swath_maps[0].upper  << std::endl;
-    return EXECUTION_OK;
 
     // Get the trafo information
     TransformationDescription trafo_rtnorm;

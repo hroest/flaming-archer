@@ -1471,6 +1471,10 @@ protected:
       }
     }
 
+    std::cout << "Nr swath maps " << swath_maps.size() << std::endl;
+    std::cout << "First swath map " << swath_maps[0].lower << " to " << swath_maps[0].upper  << std::endl;
+    return EXECUTION_OK;
+
     // Get the trafo information
     TransformationDescription trafo_rtnorm;
     if (trafo_in.size() > 0) 

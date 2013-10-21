@@ -71,8 +71,16 @@
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 
 #include <OpenMS/TRANSFORMATIONS/RAW2PEAK/PeakPickerHiRes.h>
+#include <OpenMS/TRANSFORMATIONS/RAW2PEAK/PeakPickerMaxima.h>
 #include <OpenMS/TRANSFORMATIONS/RAW2PEAK/PeakPickerIterative.h>
 #include <OpenMS/FILTERING/SMOOTHING/GaussFilter.h>
+
+#define MZXMLSUPPORT
+
+#ifdef MZXMLSUPPORT
+#include <OpenMS/FORMAT/MzXMLFile.h>
+#include "MSDataReader.h"
+#endif
 
 using namespace std;
 using namespace OpenMS;
@@ -590,8 +598,87 @@ namespace OpenMS
     std::vector< SwathMap > load_files_from_single_mzxml(String file, String tmp, 
       boost::shared_ptr<ExperimentalSettings>& /* exp_meta */, String readoptions="normal")
     {
+#ifndef MZXMLSUPPORT
       throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
           "MzXML not supported");
+#else
+    {
+      // TODO how to transfer the experimental settings here ... 
+      int progress = 0;
+      startProgress(0, 1, "Loading data file " + file);
+      std::vector< SwathMap > swath_maps;
+      boost::shared_ptr<FullSwathFileLoader> dataConsumer;
+      String tmp_fname = "openswath_tmpfile";
+
+      boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
+      OpenSwath::SpectrumAccessPtr spectra_ptr;
+      SwathMap swath_map;
+
+      if (readoptions == "normal")
+      {
+        //dataConsumer = new RegularSwathFileLoader();
+        // MzMLFile().transform(file, dataConsumer, *exp.get());
+        // MSDataReader
+      }
+      else if (readoptions == "cache")
+      {
+
+        boost::shared_ptr<MSExperiment<Peak1D> > experiment_metadata(new MSExperiment<Peak1D>);
+        // First pass through the file -> get the meta data
+        /*
+        {
+          MzMLFile f;
+          f.getOptions().setAlwaysAppendData(true);
+          f.getOptions().setFillData(false);
+          f.load(file, *experiment_metadata);
+        }
+        */
+
+        std::vector<int> swath_counter;
+        int nr_ms1_spectra;
+
+        /*
+        MzXMLFile f;
+        Internal::MSDataCounterReserve<Peak1D> exp_cnt;
+        //f.getOptions().addMSLevel(-1);
+        f.load(in, exp_cnt);
+        */
+
+
+        // Result contained in exp_cnt.spectraCounts and exp_cnt.chromatogramCounts
+
+          // Result contained in exp_cnt.spectraCounts and exp_cnt.chromatogramCounts
+        analyzeFullSwath(experiment_metadata, swath_counter, nr_ms1_spectra);
+        for (int i = 0; i < 32; i++)
+        {
+          swath_counter.push_back(100/32 + 1 );
+        }
+        nr_ms1_spectra = 100 / 32 + 1;
+
+        //boost::shared_ptr<> experiment_metadata(new MSExperiment<Peak1D>);
+
+        dataConsumer = boost::shared_ptr<CachedSwathFileLoader>( new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter) ) ; 
+        Internal::MSDataReader<FullSwathFileLoader> datareader;
+        datareader.setConsumer(dataConsumer);
+        MzXMLFile().load(file, datareader);
+        //MzMLFile().transform(file, dataConsumer, *exp.get());
+      }
+      //else if (readoptions == "reduce") { }
+      //else if (readoptions == "reduce_iterative") { }
+      else
+      {
+        throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+            "Unknown or unsupported option " + readoptions);
+      }
+      dataConsumer->retrieveSwathMaps(swath_maps);
+      std::cout << "Retrieved " << swath_maps.size() << " SWATH maps:" << std::endl;
+      for (Size i = 0; i < swath_maps.size(); i++) {std::cout << swath_maps[0].lower << "\tto\t" << swath_maps[0].upper << std::endl;}
+      //delete dataConsumer;
+
+      endProgress();
+      return swath_maps;
+    }
+#endif
     }
   };
 
@@ -1359,17 +1446,28 @@ protected:
     sml.setLogType(log_type_);
     boost::shared_ptr<ExperimentalSettings > exp_meta(new ExperimentalSettings);
     std::vector< SwathMap > swath_maps;
-    if (split_file || file_list.size() > 1) swath_maps = sml.load_files(file_list, tmp, exp_meta, readoptions);
+    if (split_file || file_list.size() > 1)
+    {
+      std::cout << "load split" << std::endl;
+      swath_maps = sml.load_files(file_list, tmp, exp_meta, readoptions);
+    }
     else 
     {
       FileTypes::Type in_file_type = FileTypes::nameToType(file_list[0]);
-      if (tr_file_type == FileTypes::MZML || tr_file.suffix(4).toLower() == "mzml"  )
+      if (in_file_type == FileTypes::MZML || file_list[0].suffix(4).toLower() == "mzml"  )
       {
+        std::cout << "mzml " << std::endl;
         swath_maps = sml.load_files_from_single(file_list[0], tmp, exp_meta, readoptions);
       }
-      else if (tr_file_type == FileTypes::MZXML || tr_file.suffix(4).toLower() == "mzxml"  )
+      else if (in_file_type == FileTypes::MZXML || file_list[0].suffix(5).toLower() == "mzxml"  )
       {
+        std::cout << "mzxml " << std::endl;
         swath_maps = sml.load_files_from_single_mzxml(file_list[0], tmp, exp_meta, readoptions);
+      }
+      else
+      {
+        std::cout << "none! " << std::endl;
+        std::cout << in_file_type << std::endl;
       }
     }
 

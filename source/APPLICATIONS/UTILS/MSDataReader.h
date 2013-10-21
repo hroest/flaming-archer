@@ -90,27 +90,25 @@ namespace OpenMS
 
       void resize(size_t s) 
       {
-        if (this->spectra_.size() == 0)
+        if (this->dummy_spectra_.size() == 0)
         {
           MSSpectrum<PeakT> dummy;
-          this->spectra_.push_back(dummy);
+          this->dummy_spectra_.push_back(dummy);
         }
         else
         {
           // mzXML Handler uses resize to add a new spectrum ... very strange!
-          addSpectrum(this->spectra_.back());
-          this->spectra_.clear();
+          addSpectrum(this->dummy_spectra_.back());
+          this->dummy_spectra_.clear();
           MSSpectrum<PeakT> dummy;
-          this->spectra_.push_back(dummy);
+          this->dummy_spectra_.push_back(dummy);
         }
       }
 
       /// adds a spectrum to the consumer and keeps the meta-data (SpectrumSettings)
       void addSpectrum(/* const  */MSSpectrum<PeakT> & spectrum)
       {
-        std::cout << "got spectra, will consume it" << std::endl;
         consumer->consumeSpectrum(spectrum);
-        std::cout << "done" << std::endl;
 
         // We copy the meta-data of the spectrum
         MSSpectrum<PeakT> cpy = spectrum;
@@ -147,7 +145,11 @@ namespace OpenMS
       // try these
       virtual std::vector<MSSpectrum<PeakT> > & getSpectra() 
       {
-        //std::cout << " Try to get spectra!  " << this->spectra_.size() << std::endl;
+        return this->dummy_spectra_;
+      }
+
+      virtual std::vector<MSSpectrum<PeakT> > & getRealSpectra() 
+      {
         return this->spectra_;
       }
 
@@ -172,7 +174,11 @@ namespace OpenMS
       }
 
     protected:
+
       boost::shared_ptr<ConsumerT> consumer;
+
+      /// dummy spectra vector
+      std::vector< MSSpectrum<Peak1D> > dummy_spectra_;
     };
 
     /*

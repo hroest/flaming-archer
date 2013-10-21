@@ -71,7 +71,6 @@
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 
 #include <OpenMS/TRANSFORMATIONS/RAW2PEAK/PeakPickerHiRes.h>
-#include <OpenMS/TRANSFORMATIONS/RAW2PEAK/PeakPickerMaxima.h>
 #include <OpenMS/TRANSFORMATIONS/RAW2PEAK/PeakPickerIterative.h>
 #include <OpenMS/FILTERING/SMOOTHING/GaussFilter.h>
 

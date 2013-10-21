@@ -103,7 +103,7 @@ namespace OpenMS
         }
         else 
         {
-          if (ms2_counter_ == swath_counter_.size())
+          if (ms2_counter_ == (int)swath_counter_.size())
           {
             swath_counter_.push_back(0);
           }
@@ -422,7 +422,7 @@ namespace OpenMS
   }
 
     std::vector< SwathMap > load_files(StringList file_list, String tmp, 
-      boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
+      boost::shared_ptr<ExperimentalSettings>& /* exp_meta */, String readoptions="normal")
     {
       // TODO how to transfer the experimental settings here ... 
       int progress = 0;

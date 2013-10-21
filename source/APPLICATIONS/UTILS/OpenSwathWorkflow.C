@@ -106,7 +106,6 @@ namespace OpenMS
   {
     int ms1_counter_ = 0;
     int ms2_counter_ = 0;
-        std::cout << " got " << exp.size() << " spectra " << std::endl;  
     for (Size i = 0; i < exp.size(); i++)
     {
       const MSSpectrum<> & s = exp[i];
@@ -638,11 +637,13 @@ namespace OpenMS
       else if (readoptions == "cache")
       {
 
+        // First pass through the file -> get the meta data
         boost::shared_ptr<MSExperiment<Peak1D> > experiment_metadata(new MSExperiment<Peak1D>);
         std::vector<int> swath_counter;
         int nr_ms1_spectra;
         {
-          boost::shared_ptr<MSDataTransformingConsumer> noopConsumer = boost::shared_ptr<MSDataTransformingConsumer>( new MSDataTransformingConsumer() ) ; 
+          boost::shared_ptr<MSDataTransformingConsumer> noopConsumer = 
+            boost::shared_ptr<MSDataTransformingConsumer>( new MSDataTransformingConsumer() ) ; 
           Internal::MSMzXMLDataReader<MSDataTransformingConsumer> datareader;
           datareader.setConsumer(noopConsumer);
           MzXMLFile().load(file, datareader);
@@ -662,9 +663,6 @@ namespace OpenMS
             "Unknown or unsupported option " + readoptions);
       }
       dataConsumer->retrieveSwathMaps(swath_maps);
-      std::cout << "Retrieved " << swath_maps.size() << " SWATH maps:" << std::endl;
-      for (Size i = 0; i < swath_maps.size(); i++) {std::cout << swath_maps[i].lower << "\tto\t" << swath_maps[i].upper << std::endl;}
-      //delete dataConsumer;
 
       endProgress();
       return swath_maps;

@@ -163,7 +163,7 @@ namespace OpenMS
       /// Calling resize means that the handler will move on to the next spectrum.
       /// Therefore we append the old spectrum through addSpectrum and set the
       /// vector of dummy spectra to one empty spectrum again.
-      void resize(size_t s) 
+      void resize(size_t) 
       {
         if (this->dummy_spectra_.empty())
         {

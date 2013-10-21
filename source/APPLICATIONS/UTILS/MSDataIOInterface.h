@@ -176,7 +176,7 @@ namespace OpenMS
 
         @param clear_meta_data If @em true, all meta data is cleared in addition to the data.
       */
-      virtual void clear(bool clear_meta_data)
+      virtual void clear(bool)
       {
         throw Exception::NotImplemented(__FILE__, __LINE__, __PRETTY_FUNCTION__);
       }

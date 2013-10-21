@@ -549,10 +549,18 @@ namespace OpenMS
       return SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
   }
 
-    std::vector< SwathMap > load_files(StringList file_list, String tmp, 
-      boost::shared_ptr<ExperimentalSettings>& /* exp_meta */, String readoptions="normal")
+    /// only read the meta data from a file and use it to populate exp_meta
+    void populateMetaData_(String file, boost::shared_ptr<ExperimentalSettings>& exp_meta)
     {
-      // TODO how to transfer the experimental settings here ... 
+      MSExperiment<Peak1D> tmp;
+      MSDataTransformingConsumer c;
+      MzMLFile().transform(file, &c, tmp);
+      *exp_meta = tmp;
+    }
+
+    std::vector< SwathMap > load_files(StringList file_list, String tmp, 
+      boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
+    {
       int progress = 0;
       startProgress(0, file_list.size(), "Loading data");
 
@@ -567,6 +575,9 @@ namespace OpenMS
 
         boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
         OpenSwath::SpectrumAccessPtr spectra_ptr;
+
+        // Populate meta-data
+        if (i == 0) { populateMetaData_(file_list[i], exp_meta); }
 
         if (readoptions == "normal")
         {
@@ -661,10 +672,8 @@ namespace OpenMS
     }
 
     std::vector< SwathMap > load_files_from_single(String file, String tmp, 
-      boost::shared_ptr<ExperimentalSettings>& /* exp_meta */, String readoptions="normal")
+      boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
     {
-      // TODO how to transfer the experimental settings here ... 
-      int progress = 0;
       startProgress(0, 1, "Loading data file " + file);
       std::vector< SwathMap > swath_maps;
       FullSwathFileLoader * dataConsumer;
@@ -673,6 +682,8 @@ namespace OpenMS
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
       OpenSwath::SpectrumAccessPtr spectra_ptr;
       SwathMap swath_map;
+
+      populateMetaData_(file, exp_meta); 
 
       if (readoptions == "normal")
       {
@@ -713,15 +724,13 @@ namespace OpenMS
     }
 
     std::vector< SwathMap > load_files_from_single_mzxml(String file, String tmp, 
-      boost::shared_ptr<ExperimentalSettings>& /* exp_meta */, String readoptions="normal")
+      boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
     {
 #ifndef MZXMLSUPPORT
       throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
           "MzXML not supported");
 #else
     {
-      // TODO how to transfer the experimental settings here ... 
-      int progress = 0;
       startProgress(0, 1, "Loading data file " + file);
       std::vector< SwathMap > swath_maps;
       boost::shared_ptr<FullSwathFileLoader> dataConsumer;
@@ -733,15 +742,11 @@ namespace OpenMS
 
       if (readoptions == "normal")
       {
-        /*
-        dataConsumer = new RegularSwathFileLoader();
-        MzMLFile().transform(file, dataConsumer, *exp.get());
-        */
         dataConsumer = boost::shared_ptr<RegularSwathFileLoader>( new RegularSwathFileLoader() ) ; 
         Internal::MSMzXMLDataReader<FullSwathFileLoader> datareader;
         datareader.setConsumer(dataConsumer);
         MzXMLFile().load(file, datareader);
-
+        *exp_meta = datareader;
       }
       else if (readoptions == "cache")
       {
@@ -757,6 +762,7 @@ namespace OpenMS
           datareader.setConsumer(noopConsumer);
           MzXMLFile().load(file, datareader);
           analyzeFullSwath(datareader.getRealSpectra(), swath_counter, nr_ms1_spectra);
+          *exp_meta = datareader;
         }
 
         dataConsumer = boost::shared_ptr<CachedSwathFileLoader>( new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter) ) ; 

@@ -111,7 +111,6 @@ namespace OpenMS
     {
       const MSSpectrum<> & s = exp[i];
       {
-        std::cout << " spectrum " << i << " has ms level " << s.getMSLevel() << std::endl;  
         if (s.getMSLevel() == 1)
         {
           ms2_counter_ = 0;

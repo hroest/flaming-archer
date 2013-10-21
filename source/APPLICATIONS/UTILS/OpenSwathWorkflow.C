@@ -760,7 +760,9 @@ namespace OpenMS
             boost::shared_ptr<MSDataTransformingConsumer>( new MSDataTransformingConsumer() ) ; 
           Internal::MSMzXMLDataReader<MSDataTransformingConsumer> datareader;
           datareader.setConsumer(noopConsumer);
-          MzXMLFile().load(file, datareader);
+          MzXMLFile f;
+          f.getOptions().setFillData(false);
+          f.load(file, datareader);
           analyzeFullSwath(datareader.getRealSpectra(), swath_counter, nr_ms1_spectra);
           *exp_meta = datareader;
         }

@@ -33,9 +33,6 @@
 // --------------------------------------------------------------------------
 
 // Interfaces
-// current version: 
-// f8dbb2e0e1bcdff933b5478b67f3e1c8c7d0ad52 dummy commit, not finished yet
-//
 #include <OpenMS/INTERFACES/IMSDataConsumer.h>
 
 // Consumers

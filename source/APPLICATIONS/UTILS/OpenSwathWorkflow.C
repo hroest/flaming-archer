@@ -1165,8 +1165,11 @@ namespace OpenMS
     int progress = 0;
     this->startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
     
+    // We set dynamic scheduling such that the maps are worked on in the order
+    // in which they were given to the program / acquired. This gives much
+    // better load balancing than static allocation.
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic,1)
 #endif
     for(Size i = 0; i < swath_maps.size(); i++)
     {
@@ -1184,7 +1187,11 @@ namespace OpenMS
 #ifdef _OPENMP
 #pragma omp critical (featureFinder)
 #endif
-      { std::cout << "Will analyze " << transition_exp_used_all.getTransitions().size() << 
+      { std::cout << "Thread " << 
+#ifdef _OPENMP
+        omp_get_thread_num() << " " <<
+#endif
+        "will analyze " << transition_exp_used_all.getTransitions().size() << 
         " transitions from SWATH " << i << " in batches of " << batch_size << std::endl; }
       for (size_t j = 0; j < transition_exp_used_all.getTransitions().size() / batch_size; j++)
       {

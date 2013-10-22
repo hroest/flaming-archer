@@ -1196,20 +1196,20 @@ namespace OpenMS
 
         // Step 2: extract these transitions
         ChromatogramExtractor extractor;
-        boost::shared_ptr<MSExperiment<Peak1D> > chrom_tmp(new MSExperiment<Peak1D>);
+        boost::shared_ptr<MSExperiment<Peak1D> > chrom_exp(new MSExperiment<Peak1D>);
 
-        std::vector< OpenSwath::ChromatogramPtr > tmp_out; // chrom_tmp
+        std::vector< OpenSwath::ChromatogramPtr > chrom_list;
         std::vector< ChromatogramExtractor::ExtractionCoordinates > coordinates;
 
         // Step 2.1: prepare the extraction coordinates
         if (cp.rt_extraction_window < 0)
         {
-          prepare_coordinates(tmp_out, coordinates, transition_exp_used, cp.rt_extraction_window, false);
+          prepare_coordinates(chrom_list, coordinates, transition_exp_used, cp.rt_extraction_window, false);
         }
         else
         {
           // Use an rt extraction window of 0.0 which will just write the retention time in start / end positions
-          prepare_coordinates(tmp_out, coordinates, transition_exp_used, 0.0, false);
+          prepare_coordinates(chrom_list, coordinates, transition_exp_used, 0.0, false);
           for (std::vector< ChromatogramExtractor::ExtractionCoordinates >::iterator it = coordinates.begin(); it != coordinates.end(); it++)
           {
             it->rt_start = trafo_inverse.apply(it->rt_start) - cp.rt_extraction_window / 2.0;
@@ -1218,46 +1218,49 @@ namespace OpenMS
         }
 
         // Step 2.2: extract chromatograms
-        extractor.extractChromatograms(swath_maps[i].sptr, tmp_out, coordinates, cp.extraction_window,
+        extractor.extractChromatograms(swath_maps[i].sptr, chrom_list, coordinates, cp.extraction_window,
             cp.ppm, cp.extraction_function);
 
         // Step 2.3: convert chromatograms back and write to output
         std::vector< OpenMS::MSChromatogram<> > chromatograms;
-        for (Size j = 0; j < tmp_out.size(); j++)
-        {
-          OpenMS::MSChromatogram<> chrom;
-          OpenSwathDataAccessHelper::convertToOpenMSChromatogram(chrom, tmp_out[j]);
-          chrom.setNativeID(coordinates[j].id);
-          chromatograms.push_back(chrom);
-          chromConsumer->consumeChromatogram(chrom); // also write to output if so desired
-        }
-        chrom_tmp->setChromatograms(chromatograms);
-        OpenSwath::SpectrumAccessPtr chromatogram_ptr = OpenSwath::SpectrumAccessPtr(new OpenMS::SpectrumAccessOpenMS(chrom_tmp));
+        extractor.return_chromatogram(chrom_list, coordinates, transition_exp_used,  SpectrumSettings(), chromatograms, false);
+        chrom_exp->setChromatograms(chromatograms);
+        OpenSwath::SpectrumAccessPtr chromatogram_ptr = OpenSwath::SpectrumAccessPtr(new OpenMS::SpectrumAccessOpenMS(chrom_exp));
 
         // Step 3: score these extracted transitions
         FeatureMap<> featureFile;
         scoreAllChromatograms(chromatogram_ptr, swath_maps[i].sptr, transition_exp_used, trafo,
             cp.rt_extraction_window, featureFile, feature_finder_param, os, !out_tsv.empty());
 
-        // write all features and the protein identifications from tmp_featureFile into featureFile
+        // Step 4: write all chromatograms and features out into an output object / file 
+        // (this needs to be done in a critical section since we only have one
+        // output file and one output map).
 #ifdef _OPENMP
 #pragma omp critical (featureFinder)
 #endif
-        if (!out.empty())
         {
-          for (FeatureMap<Feature>::iterator feature_it = featureFile.begin();
-               feature_it != featureFile.end(); feature_it++)
+          // write chromatograms to output if so desired
+          for (Size j = 0; j < chromatograms.size(); j++)
           {
-            out_featureFile.push_back(*feature_it);
+            chromConsumer->consumeChromatogram(chromatograms[j]); 
           }
-          for (std::vector<ProteinIdentification>::iterator protid_it =
-                 featureFile.getProteinIdentifications().begin();
-               protid_it != featureFile.getProteinIdentifications().end();
-               protid_it++)
+          // write features to output if so desired
+          if (!out.empty())
           {
-            out_featureFile.getProteinIdentifications().push_back(*protid_it);
+            for (FeatureMap<Feature>::iterator feature_it = featureFile.begin();
+                 feature_it != featureFile.end(); feature_it++)
+            {
+              out_featureFile.push_back(*feature_it);
+            }
+            for (std::vector<ProteinIdentification>::iterator protid_it =
+                   featureFile.getProteinIdentifications().begin();
+                 protid_it != featureFile.getProteinIdentifications().end();
+                 protid_it++)
+            {
+              out_featureFile.getProteinIdentifications().push_back(*protid_it);
+            }
+            this->setProgress(progress++);
           }
-          this->setProgress(progress++);
         }
       }
 

@@ -1327,6 +1327,8 @@ protected:
     registerInputFile_("rt_norm", "<file>", "", "RT normalization file (how to map the RTs of this run to the ones stored in the library). If set, tr_irt may be omitted.", false);
     setValidFormats_("rt_norm", StringList::create("trafoXML"));
 
+    registerStringOption_("swath_windows_file", "<file>", "", "Optional, tab separated file containing the SWATH windows: lower_offset upper_offset \\newline 400 425 \\newline ... ", false);
+
     // one of the following two needs to be set
     registerOutputFile_("out_features", "<file>", "", "output file", false);
     setValidFormats_("out_features", StringList::create("featureXML"));
@@ -1413,6 +1415,40 @@ protected:
     }
   }
 
+  void readSwathWindows(String filename, std::vector<double> & swath_prec_lower_,
+    std::vector<double> & swath_prec_upper_ )
+  {
+    std::ifstream data(filename.c_str());
+    std::string   line;
+    std::string   tmp;
+    std::getline(data, line); //skip header
+    double lower, upper;
+    while (std::getline(data, line))
+    {
+      std::stringstream lineStream(line);
+
+      lineStream >> lower;
+      lineStream >> upper;
+
+      swath_prec_lower_.push_back(lower);
+      swath_prec_upper_.push_back(upper);
+    }
+    assert(swath_prec_lower_.size() == swath_prec_upper_.size());
+  }
+
+  void annotateSwathMapsFromFile(String filename,
+    std::vector< SwathMap >& swath_maps)
+  {
+    std::vector<double> swath_prec_lower_, swath_prec_upper_;
+    readSwathWindows(filename, swath_prec_lower_, swath_prec_upper_);
+    assert(swath_prec_lower_.size() == swath_maps.size());
+    for (Size i = 0; i < swath_maps.size(); i++)
+    {
+      swath_maps[i].lower = swath_prec_lower_[i];
+      swath_maps[i].upper = swath_prec_upper_[i];
+    }
+  }
+      
   /**
    *
    * Program flow
@@ -1445,6 +1481,7 @@ protected:
     DoubleReal extraction_window = getDoubleOption_("extraction_window");
     DoubleReal rt_extraction_window = getDoubleOption_("rt_extraction_window");
     String extraction_function = getStringOption_("extraction_function");
+    String swath_windows_file = getStringOption_("swath_windows_file");
     int batchSize = (int)getIntOption_("batchSize");
 
     String readoptions = getStringOption_("readOptions");
@@ -1502,6 +1539,8 @@ protected:
             "Input file needs to have ending mzML or mzXML");
       }
     }
+
+    annotateSwathMapsFromFile(swath_windows_file, swath_maps);
 
     ///////////////////////////////////
     // Get the transformation information (using iRT peptides)

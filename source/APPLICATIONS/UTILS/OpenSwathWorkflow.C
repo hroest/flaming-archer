@@ -693,6 +693,7 @@ namespace OpenMS
       else if (readoptions == "cache")
       {
 
+        std::cout << "Will analyze the metadata first to determine the number of SWATH windows and the window sizes." << std::endl;
         boost::shared_ptr<MSExperiment<Peak1D> > experiment_metadata(new MSExperiment<Peak1D>);
         // First pass through the file -> get the meta data
         {
@@ -706,6 +707,7 @@ namespace OpenMS
         int nr_ms1_spectra;
         analyzeFullSwath(experiment_metadata->getSpectra(), swath_counter, nr_ms1_spectra);
 
+        std::cout << "Determined there to be " << swath_counter.size() << " SWATH windows and in total " << nr_ms1_spectra << " MS1 spectra" << std::endl;
         dataConsumer = new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter);
         MzMLFile().transform(file, dataConsumer, *exp.get());
       }
@@ -752,6 +754,7 @@ namespace OpenMS
       {
 
         // First pass through the file -> get the meta data
+        std::cout << "Will analyze the metadata first to determine the number of SWATH windows and the window sizes." << std::endl;
         boost::shared_ptr<MSExperiment<Peak1D> > experiment_metadata(new MSExperiment<Peak1D>);
         std::vector<int> swath_counter;
         int nr_ms1_spectra;
@@ -767,6 +770,7 @@ namespace OpenMS
           *exp_meta = datareader;
         }
 
+        std::cout << "Determined there to be " << swath_counter.size() << " SWATH windows and in total " << nr_ms1_spectra << " MS1 spectra" << std::endl;
         dataConsumer = boost::shared_ptr<CachedSwathFileLoader>( new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter) ) ; 
         Internal::MSMzXMLDataReader<FullSwathFileLoader> datareader;
         datareader.setConsumer(dataConsumer);
@@ -804,11 +808,14 @@ namespace OpenMS
       peak.setIntensity(it->getIntensity());
       chromatogram.push_back(peak);
     }
+    // TODO should we always warn?
+    /*
     if (chromatogram.empty())
     {
       std::cerr << "Error: Could not find any points for chromatogram " + chromatogram.getNativeID() + \
       ". Maybe your retention time transformation is off?" << std::endl;
     }
+    */
   }
 
   // TODO shared code!! -> OpenSwathRTNormalizer...

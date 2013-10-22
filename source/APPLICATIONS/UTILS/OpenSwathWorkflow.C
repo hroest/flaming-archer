@@ -33,6 +33,9 @@
 // --------------------------------------------------------------------------
 
 // Interfaces
+// current version: 
+// f8dbb2e0e1bcdff933b5478b67f3e1c8c7d0ad52 dummy commit, not finished yet
+//
 #include <OpenMS/INTERFACES/IMSDataConsumer.h>
 
 // Consumers
@@ -254,9 +257,9 @@ namespace OpenMS
     DataReducer(GaussFilter nf, PeakPickerHiRes pp) :
       pp_(pp), nf_(nf) {}
 
-    void consumeSpectrum(typename MapType::SpectrumType & s)
+    void consumeSpectrum(/* typename  */MapType::SpectrumType & s)
     {
-      typename MapType::SpectrumType sout;
+      /* typename  */MapType::SpectrumType sout;
       nf_.filter(s);
       pp_.pick(s, sout);
       s = sout;
@@ -317,12 +320,12 @@ namespace OpenMS
       }
     }
 
-    void consumeChromatogram(typename MapType::ChromatogramType &) 
+    void consumeChromatogram(/* typename  */MapType::ChromatogramType &) 
     {
       std::cerr << "Read spectrum while reading SWATH files, did not expect that!" << std::endl;
     }
 
-    void consumeSpectrum(typename MapType::SpectrumType & s)
+    void consumeSpectrum(/* typename  */MapType::SpectrumType & s)
     {
       if (s.getMSLevel() == 1)
       {
@@ -357,8 +360,8 @@ namespace OpenMS
     }
 
   protected:
-    virtual void appendSpectrumToSwathMap_(int ms2_counter, typename MapType::SpectrumType & s) = 0;
-    virtual void appendSpectrumToMS1Map_(typename MapType::SpectrumType & s) = 0;
+    virtual void appendSpectrumToSwathMap_(int ms2_counter, /* typename  */MapType::SpectrumType & s) = 0;
+    virtual void appendSpectrumToMS1Map_(/* typename  */MapType::SpectrumType & s) = 0;
     virtual void ensureMapsAreFilled() = 0;
 
     size_t ms1_counter_;
@@ -391,7 +394,7 @@ namespace OpenMS
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>(settings_));
       swath_maps_.push_back(exp);
     }
-    void appendSpectrumToSwathMap_(int ms2_counter, typename MapType::SpectrumType & s)
+    void appendSpectrumToSwathMap_(int ms2_counter, /* typename  */MapType::SpectrumType & s)
     {
       if (ms2_counter_ == swath_maps_.size() )
         addNewSwathMap_();
@@ -403,7 +406,7 @@ namespace OpenMS
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>(settings_));
       ms1_map_ = exp;
     }
-    void appendSpectrumToMS1Map_(typename MapType::SpectrumType & s)
+    void appendSpectrumToMS1Map_(/* typename */ MapType::SpectrumType & s)
     {
       if (! ms1_map_ )
         addMS1Map_();
@@ -451,7 +454,7 @@ namespace OpenMS
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>(settings_));
       swath_maps_.push_back(exp);
     }
-    void appendSpectrumToSwathMap_(int ms2_counter, typename MapType::SpectrumType & s)
+    void appendSpectrumToSwathMap_(int ms2_counter, /* typename  */MapType::SpectrumType & s)
     {
       if (ms2_counter_ == swath_consumers_.size() )
         addNewSwathMap_();
@@ -469,7 +472,7 @@ namespace OpenMS
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>(settings_));
       ms1_map_ = exp;
     }
-    void appendSpectrumToMS1Map_(typename MapType::SpectrumType & s)
+    void appendSpectrumToMS1Map_(/* typename */ MapType::SpectrumType & s)
     {
       if (ms1_consumer_ == NULL)
         addMS1Map_();
@@ -515,9 +518,9 @@ namespace OpenMS
     DataReducerIterative(GaussFilter nf, PeakPickerIterative pp) :
       pp_(pp), nf_(nf) {}
 
-    void consumeSpectrum(typename MapType::SpectrumType & s)
+    void consumeSpectrum(/* typename */ MapType::SpectrumType & s)
     {
-      typename MapType::SpectrumType sout;
+      /* typename  */MapType::SpectrumType sout;
       nf_.filter(s);
       pp_.pick(s, sout);
       s = sout;

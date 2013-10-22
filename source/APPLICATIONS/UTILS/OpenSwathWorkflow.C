@@ -1540,7 +1540,8 @@ protected:
       }
     }
 
-    annotateSwathMapsFromFile(swath_windows_file, swath_maps);
+    if (!swath_windows_file.empty())
+      annotateSwathMapsFromFile(swath_windows_file, swath_maps);
 
     ///////////////////////////////////
     // Get the transformation information (using iRT peptides)

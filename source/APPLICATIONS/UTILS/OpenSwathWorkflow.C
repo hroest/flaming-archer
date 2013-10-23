@@ -74,7 +74,6 @@
 
 // OpenMS base classes
 #include <OpenMS/APPLICATIONS/TOPPBase.h>
-#include <OpenMS/CONCEPT/Exception.h>
 #include <OpenMS/CONCEPT/ProgressLogger.h>
 
 #include <assert.h>
@@ -241,7 +240,7 @@ namespace OpenMS
 
 }
 
-// The workflow class
+// The workflow class and the TSV writer
 namespace OpenMS 
 {
 
@@ -1059,13 +1058,13 @@ protected:
     boost::shared_ptr<ExperimentalSettings > & exp_meta,
     std::vector< OpenSwath::SwathMap > & swath_maps)
   {
-    SwathMapLoader sml;
-    sml.setLogType(log_type_);
+    SwathFile swath_file;
+    swath_file.setLogType(log_type_);
 
     if (split_file || file_list.size() > 1)
     {
       // TODO cannot use data reduction here any more ...
-      swath_maps = sml.load_files(file_list, tmp, exp_meta, readoptions);
+      swath_maps = swath_file.loadSplit(file_list, tmp, exp_meta, readoptions);
     }
     else 
     {
@@ -1073,12 +1072,12 @@ protected:
       if (in_file_type == FileTypes::MZML || file_list[0].suffix(4).toLower() == "mzml"  
         || file_list[0].suffix(7).toLower() == "mzml.gz"  )
       {
-        swath_maps = sml.load_files_from_single(file_list[0], tmp, exp_meta, readoptions);
+        swath_maps = swath_file.loadMzML(file_list[0], tmp, exp_meta, readoptions);
       }
       else if (in_file_type == FileTypes::MZXML || file_list[0].suffix(5).toLower() == "mzxml"  
         || file_list[0].suffix(8).toLower() == "mzxml.gz"  )
       {
-        swath_maps = sml.load_files_from_single_mzxml(file_list[0], tmp, exp_meta, readoptions);
+        swath_maps = swath_file.loadMzXML(file_list[0], tmp, exp_meta, readoptions);
       }
       else
       {

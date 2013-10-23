@@ -307,6 +307,118 @@ namespace OpenMS
     }
   }
 
+
+    void populateMetaData_(String file, boost::shared_ptr<ExperimentalSettings>& exp_meta)
+    {
+      MSExperiment<Peak1D> tmp;
+      MSDataTransformingConsumer c;
+      MzMLFile().transform(file, &c, tmp);
+      *exp_meta = tmp;
+    }
+
+    std::vector< OpenSwath::SwathMap > load_files_reduce(StringList file_list, String /* tmp */, 
+      boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
+    {
+      //int progress = 0;
+      //startProgress(0, file_list.size(), "Loading data");
+
+      std::vector< OpenSwath::SwathMap > swath_maps;
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+      for (SignedSize i = 0; i < boost::numeric_cast<SignedSize>(file_list.size()); ++i)
+      {
+        std::cout << "Loading file " << file_list[i] << std::endl;
+        String tmp_fname = "openswath_tmpfile_" + String(i) + ".mzML";
+
+        boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
+        OpenSwath::SpectrumAccessPtr spectra_ptr;
+
+        // Populate meta-data
+        if (i == 0) { populateMetaData_(file_list[i], exp_meta); }
+
+        if (readoptions == "reduce")
+        {
+          GaussFilter gf;
+          PeakPickerHiRes pp;
+
+          Param p = gf.getParameters();
+          p.setValue("use_ppm_tolerance", "true");
+          p.setValue("ppm_tolerance", 50.0);
+          gf.setParameters(p);
+
+          // using the consumer to reduce the input data
+          DataReducer dataConsumer(gf, pp);
+          MzMLFile().transform(file_list[i], &dataConsumer, *exp.get());
+          // ownership is transferred to AccessPtr
+          spectra_ptr = SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
+        }
+        else if (readoptions == "reduce_iterative")
+        {
+          GaussFilter gf;
+          PeakPickerIterative pp;
+
+          Param p = gf.getParameters();
+          p.setValue("use_ppm_tolerance", "true");
+          p.setValue("ppm_tolerance", 10.0);
+          gf.setParameters(p);
+
+          p = pp.getParameters();
+          p.setValue("peak_width", 0.04);
+          p.setValue("spacing_difference", 2.5);
+          p.setValue("signal_to_noise_", 0.0);
+          p.setValue("check_width_internally", "true");
+          p.setValue("clear_meta_data", "true");
+          pp.setParameters(p);
+
+          // using the consumer to reduce the input data
+          DataReducerIterative dataConsumer(gf, pp);
+          MzMLFile().transform(file_list[i], &dataConsumer, *exp.get());
+          // ownership is transferred to AccessPtr
+          spectra_ptr = SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
+        }
+        else
+        {
+          throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+              "Unknown option " + readoptions);
+        }
+
+        OpenSwath::SwathMap swath_map;
+
+        bool ms1 = false;
+        double upper = -1, lower = -1;
+        if (exp->size() == 0)
+        {
+          std::cerr << "WARNING: File " << file_list[i] << "\n does not have any scans - I will skip it" << std::endl;
+          continue;
+        }
+        if (exp->getSpectra()[0].getPrecursors().size() == 0)
+        {
+          std::cout << "NOTE: File " << file_list[i] << "\n does not have any precursors - I will assume it is the MS1 scan." << std::endl;
+          ms1 = true;
+        }
+        else
+        {
+          // Checks that this is really a SWATH map and extracts upper/lower window
+          OpenSwathHelper::checkSwathMap(*exp.get(), lower, upper);
+        }
+
+        swath_map.sptr = spectra_ptr;
+        swath_map.lower = lower;
+        swath_map.upper = upper;
+        swath_map.ms1 = ms1;
+#ifdef _OPENMP
+#pragma omp critical (load_files)
+#endif
+        {
+          swath_maps.push_back( swath_map );
+          //setProgress(progress++);
+        }
+      }
+      //endProgress();
+      return swath_maps;
+    }
+
 }
 
 // The workflow code
@@ -998,6 +1110,7 @@ protected:
     std::vector< SwathMap > swath_maps;
     if (split_file || file_list.size() > 1)
     {
+      // TODO cannot use data reduction here any more ...
       swath_maps = sml.load_files(file_list, tmp, exp_meta, readoptions);
     }
     else 

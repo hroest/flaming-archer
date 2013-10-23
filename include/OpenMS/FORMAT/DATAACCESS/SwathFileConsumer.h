@@ -96,7 +96,8 @@ namespace OpenMS
 
     FullSwathFileConsumer() :
       ms1_counter_(0),
-      ms2_counter_(0)
+      ms2_counter_(0),
+      ms1_map_(NULL)
     {}
 
     ~FullSwathFileConsumer() { }
@@ -337,17 +338,27 @@ namespace OpenMS
 
     void ensureMapsAreFilled_() 
     {
-      boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
-      String meta_file = cachedir_ + basename_ + "_ms1.mzML";
-      // write metadata to disk and store the correct data processing tag
-      CachedmzML().writeMetadata(*ms1_map_, meta_file, true);
-      MzMLFile().load(meta_file, *exp.get());
-      ms1_map_ = exp;
+      size_t swath_consumers_size = swath_consumers_.size();
+      bool have_ms1 = (ms1_consumer_ != NULL);
+
+      // Properly delete the CachedMzMLConsumers -> free memory and _close_ filestream
+      while(!swath_consumers_.empty()) { delete swath_consumers_.back(); swath_consumers_.pop_back(); }
+      if (ms1_consumer_ != NULL) { delete ms1_consumer_; }
+
+      if (have_ms1)
+      {
+        boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
+        String meta_file = cachedir_ + basename_ + "_ms1.mzML";
+        // write metadata to disk and store the correct data processing tag
+        CachedmzML().writeMetadata(*ms1_map_, meta_file, true);
+        MzMLFile().load(meta_file, *exp.get());
+        ms1_map_ = exp;
+      }
 
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
-      for (Size i = 0; i < swath_consumers_.size(); i++)
+      for (Size i = 0; i < swath_consumers_size; i++)
       {
         boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
         String meta_file = cachedir_ + basename_ + "_" + String(i) +  ".mzML";

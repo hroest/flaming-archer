@@ -76,8 +76,6 @@ void storeSwathFile(String filename)
     s.push_back(p);
     exp.addSpectrum(s);
   }
-  std::cout << std::endl;
-  std::cout << " exp size " << exp.getSpectra().size() << std::endl;
   MzMLFile().store(filename, exp);
 }
 

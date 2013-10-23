@@ -79,7 +79,7 @@
 #include <OpenMS/TRANSFORMATIONS/RAW2PEAK/PeakPickerIterative.h>
 #include <OpenMS/FILTERING/SMOOTHING/GaussFilter.h>
 
-#define MZXMLSUPPORT
+//#define MZXMLSUPPORT
 
 #ifdef MZXMLSUPPORT
 #include <OpenMS/FORMAT/MzXMLFile.h>
@@ -454,7 +454,7 @@ namespace OpenMS
     }
     void consumeSwathSpectrum_(MapType::SpectrumType & s, int swath_nr)
     {
-      if (swath_nr == swath_maps_.size() )
+      if (swath_nr == (int)swath_maps_.size() )
         addNewSwathMap_();
       swath_maps_[swath_nr]->addSpectrum(s);
     }
@@ -523,7 +523,7 @@ namespace OpenMS
     }
     void consumeSwathSpectrum_(MapType::SpectrumType & s, int swath_nr)
     {
-      if (swath_nr == swath_consumers_.size() )
+      if (swath_nr == (int)swath_consumers_.size() )
         addNewSwathMap_();
 
       swath_consumers_[swath_nr]->consumeSpectrum(s);
@@ -823,13 +823,16 @@ namespace OpenMS
       return swath_maps;
     }
 
-    std::vector< SwathMap > load_files_from_single_mzxml(String file, String tmp, 
-      boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
-    {
 #ifndef MZXMLSUPPORT
+    std::vector< SwathMap > load_files_from_single_mzxml(String, String, 
+      boost::shared_ptr<ExperimentalSettings>&, String)
+    {
       throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
           "MzXML not supported");
+    }
 #else
+    std::vector< SwathMap > load_files_from_single_mzxml(String file, String tmp, 
+      boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
     {
       startProgress(0, 1, "Loading data file " + file);
       std::vector< SwathMap > swath_maps;
@@ -887,8 +890,8 @@ namespace OpenMS
       return swath_maps;
     }
 #endif
-    }
-  };
+
+  }; // SwathMapLoader
 
   void selectChrom_(const MSChromatogram<ChromatogramPeak>& chromatogram_old, 
     MSSpectrum<ChromatogramPeak>& chromatogram, double rt_extraction_window, double center_rt)

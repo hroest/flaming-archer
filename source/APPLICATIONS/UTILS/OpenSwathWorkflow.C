@@ -129,14 +129,26 @@ namespace OpenMS
 
   class OPENMS_DLLAPI OpenSwathTSVWriter
   {
+    std::ofstream ofs;
+    String input_filename_;
+    bool doWrite_;
+
   public:
 
-    static void writeHeader(std::ostream &os)
+    OpenSwathTSVWriter(String output_filename, String input_filename = "inputfile") :
+      ofs(output_filename.c_str()), 
+      input_filename_(input_filename),
+      doWrite_(!output_filename.empty())
+      {}
+
+    bool isActive() {return doWrite_;}
+
+    void writeHeader()
     {
-      os << "transition_group_id\trun_id\tfilename\tRT\tid\tSequence\tFullPeptideName\tCharge\tm/z\tIntensity\tProteinName\tdecoy\tassay_rt\tdelta_rt\tleftWidth\tmain_var_xx_swath_prelim_score\tnorm_RT\ttnr_peaks\tpeak_apices_sum\tpotentialOutlier\trightWidth\trt_score\tsn_ratio\ttotal_xic\tvar_bseries_score\tvar_dotprod_score\tvar_intensity_score\tvar_isotope_correlation_score\tvar_isotope_overlap_score\tvar_library_corr\tvar_library_dotprod\tvar_library_manhattan\tvar_library_rmsd\tvar_library_rootmeansquare\tvar_library_sangle\tvar_log_sn_score\tvar_manhatt_score\tvar_massdev_score\tvar_massdev_score_weighted\tvat_norm_rt_score\tvar_xcorr_coelution\tvar_xcorr_coelution_weighted\tvar_xcorr_shape\tvar_xcorr_shape_weighted\tvar_yseries_score\txx_lda_prelim_score\txx_swath_prelim_score\taggr_Peak_Area\taggr_Peak_Apex\taggr_Fragment_Annotation\n";
+      ofs << "transition_group_id\trun_id\tfilename\tRT\tid\tSequence\tFullPeptideName\tCharge\tm/z\tIntensity\tProteinName\tdecoy\tassay_rt\tdelta_rt\tleftWidth\tmain_var_xx_swath_prelim_score\tnorm_RT\ttnr_peaks\tpeak_apices_sum\tpotentialOutlier\trightWidth\trt_score\tsn_ratio\ttotal_xic\tvar_bseries_score\tvar_dotprod_score\tvar_intensity_score\tvar_isotope_correlation_score\tvar_isotope_overlap_score\tvar_library_corr\tvar_library_dotprod\tvar_library_manhattan\tvar_library_rmsd\tvar_library_rootmeansquare\tvar_library_sangle\tvar_log_sn_score\tvar_manhatt_score\tvar_massdev_score\tvar_massdev_score_weighted\tvat_norm_rt_score\tvar_xcorr_coelution\tvar_xcorr_coelution_weighted\tvar_xcorr_shape\tvar_xcorr_shape_weighted\tvar_yseries_score\txx_lda_prelim_score\txx_swath_prelim_score\taggr_Peak_Area\taggr_Peak_Apex\taggr_Fragment_Annotation\n";
     }
 
-    static String prepareLine(const OpenSwath::LightPeptide & pep,
+    String prepareLine(const OpenSwath::LightPeptide & pep,
         const OpenSwath::LightTransition* transition,
         FeatureMap<>& output, String id)
     {
@@ -184,9 +196,9 @@ namespace OpenMS
           String line = "";
           line += id + "_run0"
             + "\t" + "0" 
-            + "\t" + "/tmp/out.featureXML"
+            + "\t" + input_filename_
             + "\t" + (String)feature_it->getRT() 
-            + "\t" + "f_" + feature_it->getUniqueId() 
+            + "\t" + "f_" + feature_it->getUniqueId()  // TODO might not be unique!!! 
             + "\t" + pep.sequence
             + "\t" + full_peptide_name
             + "\t" + (String)pep.charge
@@ -234,6 +246,11 @@ namespace OpenMS
           result += line;
         } // end of iteration
       return result;
+    }
+
+    void writeLines(std::vector<String> to_output)
+    {
+      for (Size i = 0; i < to_output.size(); i++) { ofs << to_output[i]; }
     }
 
   };
@@ -919,7 +936,7 @@ namespace OpenMS
          OpenSwath::SpectrumAccessPtr swath_map,
          OpenSwath::LightTargetedExperiment& transition_exp, 
          TransformationDescription trafo, double rt_extraction_window, 
-         FeatureMap<Feature>& output, Param& feature_finder_param, std::ostream &os, bool write_to_stream)
+         FeatureMap<Feature>& output, Param& feature_finder_param, OpenSwathTSVWriter & tsv_writer)
   {
     typedef OpenSwath::LightTransition TransitionType;
     // a transition group holds the MSSpectra with the Chromatogram peaks from above
@@ -1005,24 +1022,24 @@ namespace OpenMS
       // Process the transition_group
       trgroup_picker.pickTransitionGroup(transition_group);
       
-      if (write_to_stream) output.clear();
+      if (tsv_writer.isActive()) output.clear();
       featureFinder.scorePeakgroups(transition_group, trafo, swath_map, output);
 
-      if (write_to_stream)
+      if (tsv_writer.isActive())
       {
         const OpenSwath::LightPeptide pep = transition_exp.getPeptides()[ assay_peptide_map[id] ];
         const TransitionType* transition = assay_it->second[0];
-        to_output.push_back(OpenSwathTSVWriter::prepareLine(pep, transition, output, id));
+        to_output.push_back(tsv_writer.prepareLine(pep, transition, output, id));
       }
     }
 
-    if(write_to_stream)
+    if(tsv_writer.isActive())
     {
 #ifdef _OPENMP
 #pragma omp critical (scoreAll)
 #endif
       {
-        for (Size i = 0; i < to_output.size(); i++) { os << to_output[i]; }
+        tsv_writer.writeLines(to_output);
       }
     }
   }
@@ -1147,15 +1164,10 @@ namespace OpenMS
     const TransformationDescription trafo,
     ChromExtractParams cp, OpenSwath::LightTargetedExperiment& transition_exp, 
     FeatureMap<>& out_featureFile, String out,
-    Param& feature_finder_param, String out_tsv, 
+    Param& feature_finder_param, OpenSwathTSVWriter & tsv_writer, 
     MSDataWritingConsumer * chromConsumer, int batchSize)
   {
-
-    std::ofstream os(out_tsv.c_str());
-    if (!out_tsv.empty())
-    {
-      OpenSwathTSVWriter::writeHeader(os);
-    }
+    tsv_writer.writeHeader();
 
     TransformationDescription trafo_inverse = trafo;
     trafo_inverse.invert();
@@ -1244,7 +1256,7 @@ namespace OpenMS
         // Step 3: score these extracted transitions
         FeatureMap<> featureFile;
         scoreAllChromatograms(chromatogram_ptr, swath_maps[i].sptr, transition_exp_used, trafo,
-            cp.rt_extraction_window, featureFile, feature_finder_param, os, !out_tsv.empty());
+            cp.rt_extraction_window, featureFile, feature_finder_param, tsv_writer);
 
         // Step 4: write all chromatograms and features out into an output object / file 
         // (this needs to be done in a critical section since we only have one
@@ -1281,7 +1293,6 @@ namespace OpenMS
     }
     this->endProgress();
   }
-
 
   };
 
@@ -1626,8 +1637,10 @@ protected:
     // Extract and score
     ///////////////////////////////////
     FeatureMap<> out_featureFile;
+
+    OpenSwathTSVWriter tsvwriter(out_tsv, "/tmp/out.featureXML");
     wf.extractAndScore(swath_maps, trafo_rtnorm, cp, transition_exp, out_featureFile, out,
-        feature_finder_param, out_tsv, chromConsumer, batchSize);
+        feature_finder_param, tsvwriter, chromConsumer, batchSize);
     if (!out.empty())
     {
       addDataProcessing_(out_featureFile, getProcessingInfo_(DataProcessing::QUANTITATION));

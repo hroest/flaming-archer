@@ -434,7 +434,7 @@ namespace OpenMS
     ~CachedSwathFileLoader() 
     { 
       // Properly delete the CachedMzMLConsumers -> free memory and _close_ filestream
-      while(!swath_consumers_.empty()) delete swath_consumers_.back(), swath_consumers_.pop_back();
+      while(!swath_consumers_.empty()) {delete swath_consumers_.back(); swath_consumers_.pop_back();}
       if (ms1_consumer_ != NULL) delete ms1_consumer_;
     }
 

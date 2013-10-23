@@ -83,6 +83,7 @@ namespace OpenMS
    * FullSwathFileConsumer * dataConsumer;
    * // assign dataConsumer to an implementation of FullSwathFileConsumer
    * MzMLFile().transform(file, dataConsumer);
+   * dataConsumer->retrieveSwathMaps(maps);
    *
    */
   class OPENMS_DLLAPI FullSwathFileConsumer :
@@ -97,7 +98,8 @@ namespace OpenMS
     FullSwathFileConsumer() :
       ms1_counter_(0),
       ms2_counter_(0),
-      ms1_map_(NULL)
+      ms1_map_(), // initialize to null
+      consuming_possible_(true)
     {}
 
     ~FullSwathFileConsumer() { }
@@ -112,9 +114,13 @@ namespace OpenMS
      * the MS1 map (if present) and the MS2 maps (SWATH maps). This should be
      * called after all spectra are consumed.
      *
+     * @note It is not possible to consume any more spectra after calling this
+     * function (it contains finalization code and may close filestreams).
+     *
      */
     void retrieveSwathMaps(std::vector< OpenSwath::SwathMap > & maps)
     {
+      consuming_possible_ = false; // make consumption of further spectra / chromatograms impossble
       ensureMapsAreFilled_();
       if (ms1_map_)
       {
@@ -150,6 +156,11 @@ namespace OpenMS
     /// Consume a spectrum which may belong either to an MS1 scan or one of n MS2 (SWATH) scans
     void consumeSpectrum(MapType::SpectrumType & s)
     {
+      if (!consuming_possible_) 
+      {
+        throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
+            "FullSwathFileConsumer cannot consume any more spectra after retrieveSwathMaps has been called already");
+      }
       if (s.getMSLevel() == 1)
       {
         // append a new MS1 scan, set the ms2 counter to zero and proceed
@@ -217,6 +228,8 @@ namespace OpenMS
     /// The Experimental settings 
     // (MSExperiment has no constructor using ExperimentalSettings)
     MSExperiment<> settings_;
+
+    bool consuming_possible_;
 
   };
 
@@ -342,6 +355,11 @@ namespace OpenMS
       bool have_ms1 = (ms1_consumer_ != NULL);
 
       // Properly delete the CachedMzMLConsumers -> free memory and _close_ filestream
+      // The filestreams to the cached data on disc can and should be closed
+      // here safely. Since ensureMapsAreFilled_ is called after consuming all
+      // the spectra, there will be no more spectra to append but the client
+      // might already want to read after this call, so all data needs to be
+      // present on disc and the filestreams closed.
       while(!swath_consumers_.empty()) { delete swath_consumers_.back(); swath_consumers_.pop_back(); }
       if (ms1_consumer_ != NULL) { delete ms1_consumer_; }
 

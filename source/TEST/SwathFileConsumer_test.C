@@ -52,7 +52,7 @@ void getSwathFile(MSExperiment<>& exp, int nr_swathes=32, bool ms1=true)
   {
     MSSpectrum<> s;
     s.setMSLevel(1);
-    Peak1D p; p.setMZ(101); p.setIntensity(201);
+    Peak1D p; p.setMZ(100); p.setIntensity(200);
     s.push_back(p);
     exp.addSpectrum(s);
   }
@@ -92,7 +92,7 @@ END_SECTION
 
 START_SECTION(([EXTRA] consumeAndRetrieve))
 {
-  regular_sfc_ptr = new RegularSwathFileConsumer;
+  regular_sfc_ptr = new RegularSwathFileConsumer();
   MSExperiment<> exp;
   getSwathFile(exp);
   // Consume all the spectra
@@ -117,6 +117,61 @@ START_SECTION(([EXTRA] consumeAndRetrieve))
     TEST_REAL_SIMILAR(maps[i+1].upper, 425+i*25)
   }
 
+}
+END_SECTION
+
+START_SECTION(([EXTRA] consumeAndRetrieve_noMS1))
+{
+  int nr_swath = 32;
+  regular_sfc_ptr = new RegularSwathFileConsumer();
+  MSExperiment<> exp;
+  getSwathFile(exp, nr_swath, false);
+  // Consume all the spectra
+  for (Size i = 0; i < exp.getSpectra().size(); i++)
+  {
+    regular_sfc_ptr->consumeSpectrum(exp.getSpectra()[i]);
+  }
+
+  std::vector< OpenSwath::SwathMap > maps;
+  regular_sfc_ptr->retrieveSwathMaps(maps);
+
+  TEST_EQUAL(maps.size(), nr_swath) // Swath number
+  TEST_EQUAL(maps[0].ms1, false)
+  for (int i = 0; i< nr_swath; i++)
+  {
+    TEST_EQUAL(maps[i].ms1, false)
+    TEST_EQUAL(maps[i].sptr->getNrSpectra(), 1)
+    TEST_EQUAL(maps[i].sptr->getSpectrumById(0)->getMZArray()->data.size(), 1)
+    TEST_REAL_SIMILAR(maps[i].sptr->getSpectrumById(0)->getMZArray()->data[0], 101+i)
+    TEST_REAL_SIMILAR(maps[i].sptr->getSpectrumById(0)->getIntensityArray()->data[0], 201+i)
+    TEST_REAL_SIMILAR(maps[i].lower, 400+i*25)
+    TEST_REAL_SIMILAR(maps[i].upper, 425+i*25)
+  }
+
+}
+END_SECTION
+
+START_SECTION(([EXTRA] consumeAndRetrieve_noMS2))
+{
+  int nr_swath = 0;
+  regular_sfc_ptr = new RegularSwathFileConsumer();
+  MSExperiment<> exp;
+  getSwathFile(exp, nr_swath, true);
+  // Consume all the spectra
+  for (Size i = 0; i < exp.getSpectra().size(); i++)
+  {
+    regular_sfc_ptr->consumeSpectrum(exp.getSpectra()[i]);
+  }
+
+  std::vector< OpenSwath::SwathMap > maps;
+  regular_sfc_ptr->retrieveSwathMaps(maps);
+
+  TEST_EQUAL(maps.size(), 1) // Only MS1
+  TEST_EQUAL(maps[0].ms1, true)
+  TEST_EQUAL(maps[0].sptr->getNrSpectra(), 1)
+  TEST_EQUAL(maps[0].sptr->getSpectrumById(0)->getMZArray()->data.size(), 1)
+  TEST_REAL_SIMILAR(maps[0].sptr->getSpectrumById(0)->getMZArray()->data[0], 100)
+  TEST_REAL_SIMILAR(maps[0].sptr->getSpectrumById(0)->getIntensityArray()->data[0], 200)
 }
 END_SECTION
 
@@ -176,10 +231,8 @@ START_SECTION(([EXTRA] consumeAndRetrieve))
   TEST_EQUAL(maps[0].ms1, true)
   TEST_EQUAL(maps[0].sptr->getNrSpectra(), 1)
   TEST_EQUAL(maps[0].sptr->getSpectrumById(0)->getMZArray()->data.size(), 1)
-
-  TEST_EQUAL(maps[1].ms1, false)
-  TEST_EQUAL(maps[1].sptr->getNrSpectra(), 1)
-  TEST_EQUAL(maps[1].sptr->getSpectrumById(0)->getMZArray()->data.size(), 1)
+  TEST_REAL_SIMILAR(maps[0].sptr->getSpectrumById(0)->getMZArray()->data[0], 100)
+  TEST_REAL_SIMILAR(maps[0].sptr->getSpectrumById(0)->getIntensityArray()->data[0], 200)
 
   for (int i = 0; i< nr_swath; i++)
   {
@@ -225,6 +278,31 @@ START_SECTION(([EXTRA] consumeAndRetrieve_noMS1))
     TEST_REAL_SIMILAR(maps[i].upper, 425+i*25)
   }
 
+}
+END_SECTION
+
+START_SECTION(([EXTRA] consumeAndRetrieve_noMS2))
+{
+  int nr_swath = 0;
+  std::vector<int> nr_ms2_spectra(nr_swath,1);
+  cached_sfc_ptr = new CachedSwathFileConsumer("./", "tmp_osw_cached", 1, nr_ms2_spectra);
+  MSExperiment<> exp;
+  getSwathFile(exp, nr_swath, true);
+  // Consume all the spectra
+  for (Size i = 0; i < exp.getSpectra().size(); i++)
+  {
+    cached_sfc_ptr->consumeSpectrum(exp.getSpectra()[i]);
+  }
+
+  std::vector< OpenSwath::SwathMap > maps;
+  cached_sfc_ptr->retrieveSwathMaps(maps);
+
+  TEST_EQUAL(maps.size(), 1) // Only MS1
+  TEST_EQUAL(maps[0].ms1, true)
+  TEST_EQUAL(maps[0].sptr->getNrSpectra(), 1)
+  TEST_EQUAL(maps[0].sptr->getSpectrumById(0)->getMZArray()->data.size(), 1)
+  TEST_REAL_SIMILAR(maps[0].sptr->getSpectrumById(0)->getMZArray()->data[0], 100)
+  TEST_REAL_SIMILAR(maps[0].sptr->getSpectrumById(0)->getIntensityArray()->data[0], 200)
 }
 END_SECTION
 

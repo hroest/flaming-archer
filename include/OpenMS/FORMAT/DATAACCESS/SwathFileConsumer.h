@@ -37,6 +37,7 @@
 
 #include <boost/cast.hpp>
 
+// Datastructures
 #include <OpenMS/ANALYSIS/OPENSWATH/OPENSWATHALGO/DATAACCESS/DataStructures.h>
 #include <OpenMS/ANALYSIS/OPENSWATH/OPENSWATHALGO/DATAACCESS/SwathMap.h>
 
@@ -44,18 +45,12 @@
 #include <OpenMS/FORMAT/DATAACCESS/MSDataCachedConsumer.h>
 #include <OpenMS/FORMAT/DATAACCESS/MSDataTransformingConsumer.h>
 
+// Helpers
 #include <OpenMS/ANALYSIS/OPENSWATH/OpenSwathHelper.h>
-
-#include <OpenMS/INTERFACES/IMSDataConsumer.h>
 #include <OpenMS/ANALYSIS/OPENSWATH/DATAACCESS/SimpleOpenMSSpectraAccessFactory.h>
 
-
+#include <OpenMS/INTERFACES/IMSDataConsumer.h>
 #include <OpenMS/ANALYSIS/OPENSWATH/CachedmzML.h>
-
-#ifdef MZXMLSUPPORT
-#include <OpenMS/FORMAT/MzXMLFile.h>
-#include "MSDataReader.h"
-#endif
 
 namespace OpenMS 
 {

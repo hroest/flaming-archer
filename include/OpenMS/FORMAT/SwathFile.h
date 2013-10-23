@@ -37,9 +37,8 @@
 
 #include <OpenMS/FORMAT/DATAACCESS/SwathFileConsumer.h>
 
-#ifdef MZXMLSUPPORT
+#ifdef OPENMS_FORMAT_SWATHFILE_MZXMLSUPPORT
 #include <OpenMS/FORMAT/MzXMLFile.h>
-#include "MSDataReader.h"
 #endif
 
 namespace OpenMS 
@@ -222,7 +221,7 @@ namespace OpenMS
       return swath_maps;
     }
 
-#ifndef MZXMLSUPPORT
+#ifndef OPENMS_FORMAT_SWATHFILE_MZXMLSUPPORT
     std::vector< OpenSwath::SwathMap > load_files_from_single_mzxml(String, String, 
       boost::shared_ptr<ExperimentalSettings>&, String)
     {

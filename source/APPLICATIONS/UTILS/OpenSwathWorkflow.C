@@ -263,26 +263,40 @@ namespace OpenMS
     bool ms1;
   };
 
-  class OPENMS_DLLAPI DataReducer :
-    public MSDataTransformingConsumer 
-  {
+  ///////////////////////////////////
+  // Cached / Regular Swath Map Loaders
+  ///////////////////////////////////
 
-  public:
-    DataReducer(GaussFilter nf, PeakPickerHiRes pp) :
-      pp_(pp), nf_(nf) {}
-
-    void consumeSpectrum(/* typename  */MapType::SpectrumType & s)
-    {
-      /* typename  */MapType::SpectrumType sout;
-      nf_.filter(s);
-      pp_.pick(s, sout);
-      s = sout;
-    }
-
-    PeakPickerHiRes pp_;
-    GaussFilter nf_;
-  };
-
+  /**
+   * @brief Abstract base class which can consume spectra coming from SWATH experiment stored in a single file.
+   *
+   * The class consumes spectra which are coming from a complete SWATH experiment.
+   * It expects each set of SWATH spectra to be separated by an MS1 spectrum and
+   * the order of the SWATH spectra to be preserved. For example, the spectra
+   * could be arranged in the following fashion:
+   *
+   * - MS1 Spectrum Precursor = [0,0]
+   * - MS2 Spectrum Precursor = [400,425]
+   * - MS2 Spectrum Precursor = [425,450]
+   * [...]
+   * - MS2 Spectrum Precursor = [1175,1200]
+   * - MS1 Spectrum Precursor = [0,0]
+   * - MS2 Spectrum Precursor = [400,425]
+   * - MS2 Spectrum Precursor = [425,450]
+   * [...]
+   *
+   * Base classes are expected to implement functions consuming a spectrum coming
+   * from a specific SWATH or an MS1 spectrum and a final function
+   * ensureMapsAreFilled_ after which the swath_maps_ vector needs to contain
+   * valid pointers to MSExperiment.
+   *
+   * Usage:
+   *
+   * FullSwathFileLoader * dataConsumer;
+   * // assign dataConsumer to an implementation of FullSwathFileLoader
+   * MzMLFile().transform(file, dataConsumer);
+   *
+   */
   class OPENMS_DLLAPI FullSwathFileLoader :
     public Interfaces::IMSDataConsumer<> 
   {
@@ -297,18 +311,22 @@ namespace OpenMS
       ms2_counter_(0)
     {}
 
-    ~FullSwathFileLoader() 
-    {
-    }
+    ~FullSwathFileLoader() { }
 
     void setExpectedSize(Size, Size) {}
     void setExperimentalSettings(ExperimentalSettings& exp) {settings_ = exp;}
 
-    // Populate the vector of swath maps with the MS1 map (if present) and the
-    // MS2 maps (SWATH maps)
+    /**
+     * @brief Populate the vector of swath maps after consuming all spectra. 
+     *
+     * Will populate the input vector with SwathMap objects which correspond to
+     * the MS1 map (if present) and the MS2 maps (SWATH maps). This should be
+     * called after all spectra are consumed.
+     *
+     */
     void retrieveSwathMaps(std::vector< SwathMap > & maps)
     {
-      ensureMapsAreFilled();
+      ensureMapsAreFilled_();
       if (ms1_map_)
       {
         SwathMap map;
@@ -334,17 +352,19 @@ namespace OpenMS
       }
     }
 
-    void consumeChromatogram(/* typename  */MapType::ChromatogramType &) 
+    /// Consume a chromatogram -> should not happen when dealing with SWATH maps
+    void consumeChromatogram(MapType::ChromatogramType &) 
     {
       std::cerr << "Read spectrum while reading SWATH files, did not expect that!" << std::endl;
     }
 
-    void consumeSpectrum(/* typename  */MapType::SpectrumType & s)
+    /// Consume a spectrum which may belong either to an MS1 scan or one of n MS2 (SWATH) scans
+    void consumeSpectrum(MapType::SpectrumType & s)
     {
       if (s.getMSLevel() == 1)
       {
         // append a new MS1 scan, set the ms2 counter to zero and proceed
-        appendSpectrumToMS1Map_(s);
+        consumeMS1Spectrum_(s);
         ms2_counter_ = 0;
         ms1_counter_++;
       }
@@ -368,27 +388,55 @@ namespace OpenMS
           throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
               "FullSwathFileLoader: MS2 counter is larger than size of swath maps! Are the swath_maps representing the number of read in maps?");
         }
-        appendSpectrumToSwathMap_(ms2_counter_, s);
+        consumeSwathSpectrum_(s, ms2_counter_);
         ms2_counter_++;
       }
     }
 
   protected:
-    virtual void appendSpectrumToSwathMap_(int ms2_counter, /* typename  */MapType::SpectrumType & s) = 0;
-    virtual void appendSpectrumToMS1Map_(/* typename  */MapType::SpectrumType & s) = 0;
-    virtual void ensureMapsAreFilled() = 0;
+    /**
+     * @brief Consume an MS2 spectrum belonging to SWATH "swath_nr"
+     *
+     * This function should handle a Spectrum belonging to a specific SWATH
+     * (indicated by swath_nr).
+     *
+     * @note after this call, swath_maps_.size() _must_ increase by one if
+     * ms2_counter_ == swath_maps_.size() (i.e. if a new swath was encountered
+     * the first time)
+     */
+    virtual void consumeSwathSpectrum_(MapType::SpectrumType & s, int swath_nr) = 0;
+    /// @brief Consume an MS1 spectrum
+    virtual void consumeMS1Spectrum_(MapType::SpectrumType & s) = 0;
+    /**
+     * @brief Callback function after the reading is complete 
+     *
+     * Has to ensure that swath_maps_ and ms1_map_ are correctly populated.
+     */
+    virtual void ensureMapsAreFilled_() = 0;
 
     size_t ms1_counter_;
     size_t ms2_counter_;
+
+    /// A list of SWATH maps and the MS1 map
     std::vector< boost::shared_ptr<MSExperiment<> > > swath_maps_;
     boost::shared_ptr<MSExperiment<> > ms1_map_;
+
+    /// Values of lower limit, center and upper limit of the isolation windows
     std::vector<double> swath_prec_center_;
     std::vector<double> swath_prec_lower_;
     std::vector<double> swath_prec_upper_;
-    MSExperiment<> settings_; // MSExperiment has no constructor using ExperimentalSettings
+    /// The Experimental settings 
+    // (MSExperiment has no constructor using ExperimentalSettings)
+    MSExperiment<> settings_;
 
   };
 
+  /**
+   * @brief In-memory implementation of FullSwathFileLoader 
+   *
+   * Keeps all the spectra in memory by just appending them to an MSExperiment.
+   *
+   */
   class OPENMS_DLLAPI RegularSwathFileLoader :
     public FullSwathFileLoader
   {
@@ -398,21 +446,17 @@ namespace OpenMS
     typedef MapType::SpectrumType SpectrumType;
     typedef MapType::ChromatogramType ChromatogramType;
 
-    RegularSwathFileLoader() {}
-
-    ~RegularSwathFileLoader() { }
-
   protected:
     void addNewSwathMap_()
     {
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>(settings_));
       swath_maps_.push_back(exp);
     }
-    void appendSpectrumToSwathMap_(int ms2_counter, /* typename  */MapType::SpectrumType & s)
+    void consumeSwathSpectrum_(MapType::SpectrumType & s, int swath_nr)
     {
-      if (ms2_counter_ == swath_maps_.size() )
+      if (swath_nr == swath_maps_.size() )
         addNewSwathMap_();
-      swath_maps_[ms2_counter]->addSpectrum(s);
+      swath_maps_[swath_nr]->addSpectrum(s);
     }
 
     void addMS1Map_()
@@ -420,16 +464,25 @@ namespace OpenMS
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>(settings_));
       ms1_map_ = exp;
     }
-    void appendSpectrumToMS1Map_(/* typename */ MapType::SpectrumType & s)
+    void consumeMS1Spectrum_(MapType::SpectrumType & s)
     {
       if (! ms1_map_ )
         addMS1Map_();
       ms1_map_->addSpectrum(s);
     }
 
-    void ensureMapsAreFilled() {}
+    void ensureMapsAreFilled_() {}
   };
 
+  /**
+   * @brief On-disked cached implementation of FullSwathFileLoader 
+   *
+   * Writes all spectra immediately to disk in a user-specified caching
+   * location using the CachedMzMLConsumer. Internally, it handles 
+   * n+1 (n SWATH + 1 MS1 map) CachedMzMLConsumers which can consume the
+   * spectra and write them to disk immediately.
+   *
+   */
   class OPENMS_DLLAPI CachedSwathFileLoader :
     public FullSwathFileLoader
   {
@@ -468,13 +521,13 @@ namespace OpenMS
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>(settings_));
       swath_maps_.push_back(exp);
     }
-    void appendSpectrumToSwathMap_(int ms2_counter, /* typename  */MapType::SpectrumType & s)
+    void consumeSwathSpectrum_(MapType::SpectrumType & s, int swath_nr)
     {
-      if (ms2_counter_ == swath_consumers_.size() )
+      if (swath_nr == swath_consumers_.size() )
         addNewSwathMap_();
 
-      swath_consumers_[ms2_counter]->consumeSpectrum(s);
-      swath_maps_[ms2_counter]->addSpectrum(s);
+      swath_consumers_[swath_nr]->consumeSpectrum(s);
+      swath_maps_[swath_nr]->addSpectrum(s); // append for the metadata (actual data is deleted)
     }
 
     void addMS1Map_()
@@ -486,18 +539,19 @@ namespace OpenMS
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>(settings_));
       ms1_map_ = exp;
     }
-    void appendSpectrumToMS1Map_(/* typename */ MapType::SpectrumType & s)
+    void consumeMS1Spectrum_(MapType::SpectrumType & s)
     {
       if (ms1_consumer_ == NULL)
         addMS1Map_();
       ms1_consumer_->consumeSpectrum(s);
-      ms1_map_->addSpectrum(s);
+      ms1_map_->addSpectrum(s); // append for the metadata (actual data is deleted)
     }
 
-    void ensureMapsAreFilled() 
+    void ensureMapsAreFilled_() 
     {
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
       String meta_file = cachedir_ + basename_ + "_ms1.mzML";
+      // write metadata to disk and store the correct data processing tag
       CachedmzML().writeMetadata(*ms1_map_, meta_file, true);
       MzMLFile().load(meta_file, *exp.get());
       ms1_map_ = exp;
@@ -509,6 +563,7 @@ namespace OpenMS
       {
         boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
         String meta_file = cachedir_ + basename_ + "_" + String(i) +  ".mzML";
+        // write metadata to disk and store the correct data processing tag
         CachedmzML().writeMetadata(*swath_maps_[i], meta_file, true);
         MzMLFile().load(meta_file, *exp.get());
         swath_maps_[i] = exp;
@@ -524,6 +579,29 @@ namespace OpenMS
     std::vector<int> nr_ms2_spectra_;
   };
 
+  ///////////////////////////////////
+  // Data Reducers
+  ///////////////////////////////////
+  class OPENMS_DLLAPI DataReducer :
+    public MSDataTransformingConsumer 
+  {
+
+  public:
+    DataReducer(GaussFilter nf, PeakPickerHiRes pp) :
+      pp_(pp), nf_(nf) {}
+
+    void consumeSpectrum(MapType::SpectrumType & s)
+    {
+      MapType::SpectrumType sout;
+      nf_.filter(s);
+      pp_.pick(s, sout);
+      s = sout;
+    }
+
+    PeakPickerHiRes pp_;
+    GaussFilter nf_;
+  };
+
   class OPENMS_DLLAPI DataReducerIterative :
     public MSDataTransformingConsumer 
   {
@@ -532,9 +610,9 @@ namespace OpenMS
     DataReducerIterative(GaussFilter nf, PeakPickerIterative pp) :
       pp_(pp), nf_(nf) {}
 
-    void consumeSpectrum(/* typename */ MapType::SpectrumType & s)
+    void consumeSpectrum(MapType::SpectrumType & s)
     {
-      /* typename  */MapType::SpectrumType sout;
+      MapType::SpectrumType sout;
       nf_.filter(s);
       pp_.pick(s, sout);
       s = sout;
@@ -544,6 +622,9 @@ namespace OpenMS
     GaussFilter nf_;
   };
 
+  ///////////////////////////////////
+  // Map loader
+  ///////////////////////////////////
   class OPENMS_DLLAPI SwathMapLoader :
     public ProgressLogger
   {

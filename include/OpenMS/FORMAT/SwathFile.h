@@ -35,24 +35,36 @@
 #ifndef OPENMS_FORMAT_SWATHFILE_H
 #define OPENMS_FORMAT_SWATHFILE_H
 
-#include <OpenMS/FORMAT/DATAACCESS/SwathFileConsumer.h>
-
+#include <OpenMS/KERNEL/MSExperiment.h>
+#include <OpenMS/FORMAT/MzMLFile.h>
 #ifdef OPENMS_FORMAT_SWATHFILE_MZXMLSUPPORT
 #include <OpenMS/FORMAT/MzXMLFile.h>
 #endif
 
+#include <OpenMS/FORMAT/DATAACCESS/SwathFileConsumer.h>
+
 namespace OpenMS 
 {
 
-  ///////////////////////////////////
-  // Map loader
-  ///////////////////////////////////
-  class OPENMS_DLLAPI SwathMapLoader :
+  /**
+   * @brief File adapter for Swath files.
+   *
+   * This class can load SWATH files in different storage versions. The most
+   * convenient file is a single MzML file which contains one experiment.
+   * However, also the loading of a list of files is supported (loadSplit)
+   * where it is assumed that each individual file only contains scans from one
+   * precursor isolation window (one SWATH). Finally, experimental support for
+   * mzXML is available but needs to be selected with a specific compile flag
+   * (this is not for everyday use).
+   *
+   */
+  class OPENMS_DLLAPI SwathFile :
     public ProgressLogger
   {
     public:
 
-    std::vector< OpenSwath::SwathMap > load_files(StringList file_list, String tmp, 
+    /// Loads a Swath run from a list of split mzML files
+    std::vector< OpenSwath::SwathMap > loadSplit(StringList file_list, String tmp, 
       boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
     {
       int progress = 0;
@@ -81,7 +93,7 @@ namespace OpenMS
         else if (readoptions == "cache")
         {
           // Cache and load the exp (metadata only) file again
-          spectra_ptr = doCacheFile(file_list[i], tmp, tmp_fname, exp);
+          spectra_ptr = doCacheFile_(file_list[i], tmp, tmp_fname, exp);
         }
         else
         {
@@ -114,7 +126,7 @@ namespace OpenMS
         swath_map.upper = upper;
         swath_map.ms1 = ms1;
 #ifdef _OPENMP
-#pragma omp critical (load_files)
+#pragma omp critical (load)
 #endif
         {
           swath_maps.push_back( swath_map );
@@ -125,12 +137,13 @@ namespace OpenMS
       return swath_maps;
     }
 
-    std::vector< OpenSwath::SwathMap > load_files_from_single(String file, String tmp, 
+    /// Loads a Swath run from a single mzML file
+    std::vector< OpenSwath::SwathMap > loadMzML(String file, String tmp, 
       boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
     {
       startProgress(0, 1, "Loading data file " + file);
       std::vector< OpenSwath::SwathMap > swath_maps;
-      FullSwathFileLoader * dataConsumer;
+      FullSwathFileConsumer * dataConsumer;
       String tmp_fname = "openswath_tmpfile";
 
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
@@ -141,7 +154,7 @@ namespace OpenMS
 
       if (readoptions == "normal")
       {
-        dataConsumer = new RegularSwathFileLoader();
+        dataConsumer = new RegularSwathFileConsumer();
         MzMLFile().transform(file, dataConsumer, *exp.get());
       }
       else if (readoptions == "cache")
@@ -159,10 +172,11 @@ namespace OpenMS
 
         std::vector<int> swath_counter;
         int nr_ms1_spectra;
-        analyzeFullSwath(experiment_metadata->getSpectra(), swath_counter, nr_ms1_spectra);
+        countScansInSwath_(experiment_metadata->getSpectra(), swath_counter, nr_ms1_spectra);
 
-        std::cout << "Determined there to be " << swath_counter.size() << " SWATH windows and in total " << nr_ms1_spectra << " MS1 spectra" << std::endl;
-        dataConsumer = new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter);
+        std::cout << "Determined there to be " << swath_counter.size() << 
+          " SWATH windows and in total " << nr_ms1_spectra << " MS1 spectra" << std::endl;
+        dataConsumer = new CachedSwathFileConsumer(tmp, tmp_fname, nr_ms1_spectra, swath_counter);
         MzMLFile().transform(file, dataConsumer, *exp.get());
       }
       else
@@ -178,19 +192,20 @@ namespace OpenMS
     }
 
 #ifndef OPENMS_FORMAT_SWATHFILE_MZXMLSUPPORT
-    std::vector< OpenSwath::SwathMap > load_files_from_single_mzxml(String, String, 
+    /// Loads a Swath run from a single mzXML file (currently not supported)
+    std::vector< OpenSwath::SwathMap > loadMzXML(String, String, 
       boost::shared_ptr<ExperimentalSettings>&, String)
     {
       throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
           "MzXML not supported");
     }
 #else
-    std::vector< OpenSwath::SwathMap > load_files_from_single_mzxml(String file, String tmp, 
+    std::vector< OpenSwath::SwathMap > loadMzXML(String file, String tmp, 
       boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")
     {
       startProgress(0, 1, "Loading data file " + file);
       std::vector< OpenSwath::SwathMap > swath_maps;
-      boost::shared_ptr<FullSwathFileLoader> dataConsumer;
+      boost::shared_ptr<FullSwathFileConsumer> dataConsumer;
       String tmp_fname = "openswath_tmpfile";
 
       boost::shared_ptr<MSExperiment<Peak1D> > exp(new MSExperiment<Peak1D>);
@@ -199,8 +214,8 @@ namespace OpenMS
 
       if (readoptions == "normal")
       {
-        dataConsumer = boost::shared_ptr<RegularSwathFileLoader>( new RegularSwathFileLoader() ) ; 
-        Internal::MSMzXMLDataReader<FullSwathFileLoader> datareader;
+        dataConsumer = boost::shared_ptr<RegularSwathFileConsumer>(new RegularSwathFileConsumer());
+        Internal::MSMzXMLDataReader<FullSwathFileConsumer> datareader;
         datareader.setConsumer(dataConsumer);
         MzXMLFile().load(file, datareader);
         *exp_meta = datareader;
@@ -221,13 +236,15 @@ namespace OpenMS
           MzXMLFile f;
           f.getOptions().setFillData(false);
           f.load(file, datareader);
-          analyzeFullSwath(datareader.getRealSpectra(), swath_counter, nr_ms1_spectra);
+          countScansInSwath_(datareader.getRealSpectra(), swath_counter, nr_ms1_spectra);
           *exp_meta = datareader;
         }
 
-        std::cout << "Determined there to be " << swath_counter.size() << " SWATH windows and in total " << nr_ms1_spectra << " MS1 spectra" << std::endl;
-        dataConsumer = boost::shared_ptr<CachedSwathFileLoader>( new CachedSwathFileLoader(tmp, tmp_fname, nr_ms1_spectra, swath_counter) ) ; 
-        Internal::MSMzXMLDataReader<FullSwathFileLoader> datareader;
+        std::cout << "Determined there to be " << swath_counter.size() << 
+          " SWATH windows and in total " << nr_ms1_spectra << " MS1 spectra" << std::endl;
+        dataConsumer = boost::shared_ptr<CachedSwathFileConsumer>( 
+            new CachedSwathFileConsumer(tmp, tmp_fname, nr_ms1_spectra, swath_counter) ) ; 
+        Internal::MSMzXMLDataReader<FullSwathFileConsumer> datareader;
         datareader.setConsumer(dataConsumer);
         MzXMLFile().load(file, datareader);
       }
@@ -246,7 +263,7 @@ namespace OpenMS
   protected:
 
     /// Cache a file to disk
-    OpenSwath::SpectrumAccessPtr doCacheFile(String in, String tmp, String tmp_fname, 
+    OpenSwath::SpectrumAccessPtr doCacheFile_(String in, String tmp, String tmp_fname, 
         boost::shared_ptr<MSExperiment<Peak1D> > experiment_metadata )
     {
       String cached_file = tmp + tmp_fname + ".cached";
@@ -262,7 +279,7 @@ namespace OpenMS
       return SimpleOpenMSSpectraFactory::getSpectrumAccessOpenMSPtr(exp);
   }
 
-    /// only read the meta data from a file and use it to populate exp_meta
+    /// Only read the meta data from a file and use it to populate exp_meta
     void populateMetaData_(String file, boost::shared_ptr<ExperimentalSettings>& exp_meta)
     {
       MSExperiment<Peak1D> tmp;
@@ -271,35 +288,36 @@ namespace OpenMS
       *exp_meta = tmp;
     }
 
-    void analyzeFullSwath(const std::vector<MSSpectrum<> > exp, std::vector<int> & swath_counter_, int & nr_ms1_spectra)
+    /// Counts the number of scans in a full Swath file (e.g. concatenated non-split file)
+    void countScansInSwath_(const std::vector<MSSpectrum<> > exp, 
+        std::vector<int> & swath_counter, int & nr_ms1_spectra)
     {
-      int ms1_counter_ = 0;
-      int ms2_counter_ = 0;
+      int ms1_counter = 0;
+      int ms2_counter = 0;
       for (Size i = 0; i < exp.size(); i++)
       {
         const MSSpectrum<> & s = exp[i];
         {
           if (s.getMSLevel() == 1)
           {
-            ms2_counter_ = 0;
-            ms1_counter_++;
+            ms2_counter = 0;
+            ms1_counter++;
           }
           else 
           {
-            if (ms2_counter_ == (int)swath_counter_.size())
+            if (ms2_counter == (int)swath_counter.size())
             {
-              swath_counter_.push_back(0);
+              swath_counter.push_back(0);
             }
-            swath_counter_[ms2_counter_]++;
-            ms2_counter_++;
+            swath_counter[ms2_counter]++;
+            ms2_counter++;
           }
         }
       }
-      nr_ms1_spectra = ms1_counter_;
+      nr_ms1_spectra = ms1_counter;
     }
 
-  }; // SwathMapLoader
-
+  };
 }
 
 #endif

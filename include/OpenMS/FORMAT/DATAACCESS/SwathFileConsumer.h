@@ -55,12 +55,6 @@
 namespace OpenMS 
 {
 
-
-
-  ///////////////////////////////////
-  // Cached / Regular Swath Map Loaders
-  ///////////////////////////////////
-
   /**
    * @brief Abstract base class which can consume spectra coming from SWATH experiment stored in a single file.
    *
@@ -86,12 +80,12 @@ namespace OpenMS
    *
    * Usage:
    *
-   * FullSwathFileLoader * dataConsumer;
-   * // assign dataConsumer to an implementation of FullSwathFileLoader
+   * FullSwathFileConsumer * dataConsumer;
+   * // assign dataConsumer to an implementation of FullSwathFileConsumer
    * MzMLFile().transform(file, dataConsumer);
    *
    */
-  class OPENMS_DLLAPI FullSwathFileLoader :
+  class OPENMS_DLLAPI FullSwathFileConsumer :
     public Interfaces::IMSDataConsumer<> 
   {
 
@@ -100,12 +94,12 @@ namespace OpenMS
     typedef MapType::SpectrumType SpectrumType;
     typedef MapType::ChromatogramType ChromatogramType;
 
-    FullSwathFileLoader() :
+    FullSwathFileConsumer() :
       ms1_counter_(0),
       ms2_counter_(0)
     {}
 
-    ~FullSwathFileLoader() { }
+    ~FullSwathFileConsumer() { }
 
     void setExpectedSize(Size, Size) {}
     void setExperimentalSettings(ExperimentalSettings& exp) {settings_ = exp;}
@@ -131,7 +125,7 @@ namespace OpenMS
         maps.push_back(map);
       }
 
-      // TODO handle these cases...
+      // TODO handle if this goes wrong ...
       assert(swath_prec_lower_.size() == swath_maps_.size());
       assert(swath_prec_upper_.size() == swath_maps_.size());
 
@@ -180,7 +174,7 @@ namespace OpenMS
         else if (ms2_counter_ > swath_prec_center_.size() && ms2_counter_ > swath_prec_lower_.size())
         {
           throw Exception::IllegalArgument(__FILE__, __LINE__, __PRETTY_FUNCTION__,
-              "FullSwathFileLoader: MS2 counter is larger than size of swath maps! Are the swath_maps representing the number of read in maps?");
+              "FullSwathFileConsumer: MS2 counter is larger than size of swath maps! Are the swath_maps representing the number of read in maps?");
         }
         consumeSwathSpectrum_(s, ms2_counter_);
         ms2_counter_++;
@@ -226,13 +220,13 @@ namespace OpenMS
   };
 
   /**
-   * @brief In-memory implementation of FullSwathFileLoader 
+   * @brief In-memory implementation of FullSwathFileConsumer 
    *
    * Keeps all the spectra in memory by just appending them to an MSExperiment.
    *
    */
-  class OPENMS_DLLAPI RegularSwathFileLoader :
-    public FullSwathFileLoader
+  class OPENMS_DLLAPI RegularSwathFileConsumer :
+    public FullSwathFileConsumer
   {
 
   public:
@@ -269,7 +263,7 @@ namespace OpenMS
   };
 
   /**
-   * @brief On-disked cached implementation of FullSwathFileLoader 
+   * @brief On-disked cached implementation of FullSwathFileConsumer 
    *
    * Writes all spectra immediately to disk in a user-specified caching
    * location using the CachedMzMLConsumer. Internally, it handles 
@@ -277,8 +271,8 @@ namespace OpenMS
    * spectra and write them to disk immediately.
    *
    */
-  class OPENMS_DLLAPI CachedSwathFileLoader :
-    public FullSwathFileLoader
+  class OPENMS_DLLAPI CachedSwathFileConsumer :
+    public FullSwathFileConsumer
   {
 
   public:
@@ -286,7 +280,7 @@ namespace OpenMS
     typedef MapType::SpectrumType SpectrumType;
     typedef MapType::ChromatogramType ChromatogramType;
 
-    CachedSwathFileLoader(String cachedir, String basename, Size nr_ms1_spectra, std::vector<int> nr_ms2_spectra) :
+    CachedSwathFileConsumer(String cachedir, String basename, Size nr_ms1_spectra, std::vector<int> nr_ms2_spectra) :
       ms1_consumer_(NULL),
       swath_consumers_(),
       cachedir_(cachedir),
@@ -295,7 +289,7 @@ namespace OpenMS
       nr_ms2_spectra_(nr_ms2_spectra)
     {}
 
-    ~CachedSwathFileLoader() 
+    ~CachedSwathFileConsumer() 
     { 
       // Properly delete the CachedMzMLConsumers -> free memory and _close_ filestream
       while(!swath_consumers_.empty()) {delete swath_consumers_.back(); swath_consumers_.pop_back();}
@@ -372,52 +366,6 @@ namespace OpenMS
     int nr_ms1_spectra_;
     std::vector<int> nr_ms2_spectra_;
   };
-
-  /*
-  ///////////////////////////////////
-  // Data Reducers
-  ///////////////////////////////////
-  class OPENMS_DLLAPI DataReducer :
-    public MSDataTransformingConsumer 
-  {
-
-  public:
-    DataReducer(GaussFilter nf, PeakPickerHiRes pp) :
-      pp_(pp), nf_(nf) {}
-
-    void consumeSpectrum(MapType::SpectrumType & s)
-    {
-      MapType::SpectrumType sout;
-      nf_.filter(s);
-      pp_.pick(s, sout);
-      s = sout;
-    }
-
-    PeakPickerHiRes pp_;
-    GaussFilter nf_;
-  };
-
-  class OPENMS_DLLAPI DataReducerIterative :
-    public MSDataTransformingConsumer 
-  {
-
-  public:
-    DataReducerIterative(GaussFilter nf, PeakPickerIterative pp) :
-      pp_(pp), nf_(nf) {}
-
-    void consumeSpectrum(MapType::SpectrumType & s)
-    {
-      MapType::SpectrumType sout;
-      nf_.filter(s);
-      pp_.pick(s, sout);
-      s = sout;
-    }
-
-    PeakPickerIterative pp_;
-    GaussFilter nf_;
-  };
-  */
-
 }
 
 #endif

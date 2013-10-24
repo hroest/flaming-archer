@@ -307,7 +307,7 @@ namespace OpenMS
     { 
       // Properly delete the CachedMzMLConsumers -> free memory and _close_ filestream
       while(!swath_consumers_.empty()) {delete swath_consumers_.back(); swath_consumers_.pop_back();}
-      if (ms1_consumer_ != NULL) delete ms1_consumer_;
+      if (ms1_consumer_ != NULL) { delete ms1_consumer_; ms1_consumer_ = NULL;}
     }
 
   protected:
@@ -361,7 +361,7 @@ namespace OpenMS
       // might already want to read after this call, so all data needs to be
       // present on disc and the filestreams closed.
       while(!swath_consumers_.empty()) { delete swath_consumers_.back(); swath_consumers_.pop_back(); }
-      if (ms1_consumer_ != NULL) { delete ms1_consumer_; }
+      if (ms1_consumer_ != NULL) { delete ms1_consumer_; ms1_consumer_ = NULL;}
 
       if (have_ms1)
       {

@@ -53,7 +53,7 @@ bool sortSwathMaps(const OpenSwath::SwathMap& left, const OpenSwath::SwathMap& r
 
 using namespace OpenMS;
 
-void storeSwathFile(String filename)
+void storeSwathFile(String filename, int nr_swathes=32)
 {
   MSExperiment<> exp;
   {
@@ -63,7 +63,7 @@ void storeSwathFile(String filename)
     s.push_back(p);
     exp.addSpectrum(s);
   }
-  for (Size i = 0; i< 32; i++)
+  for (int i = 0; i< nr_swathes; i++)
   {
     MSSpectrum<> s;
     s.setMSLevel(2);
@@ -146,7 +146,29 @@ START_SECTION((std::vector< OpenSwath::SwathMap > loadMzML(String file, String t
 }
 END_SECTION
 
-START_SECTION(( std::vector< OpenSwath::SwathMap > loadSplit(StringList file_list, String tmp, 
+START_SECTION(([EXTRA]std::vector< OpenSwath::SwathMap > loadMzML(String file, String tmp, 
+      boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="cache") ))
+{
+  storeSwathFile("swathFile_1.tmp", 2);
+  boost::shared_ptr<ExperimentalSettings> meta = boost::shared_ptr<ExperimentalSettings>(new ExperimentalSettings());
+  std::vector< OpenSwath::SwathMap > maps = SwathFile().loadMzML("swathFile_1.tmp", "./", meta, "cache");
+
+  TEST_EQUAL(maps.size(), 2+1)
+  TEST_EQUAL(maps[0].ms1, true)
+  for (Size i = 0; i< 2; i++)
+  {
+    TEST_EQUAL(maps[i+1].ms1, false)
+    TEST_EQUAL(maps[i+1].sptr->getNrSpectra(), 1)
+    TEST_EQUAL(maps[i+1].sptr->getSpectrumById(0)->getMZArray()->data.size(), 1)
+    TEST_REAL_SIMILAR(maps[i+1].sptr->getSpectrumById(0)->getMZArray()->data[0], 101+i)
+    TEST_REAL_SIMILAR(maps[i+1].sptr->getSpectrumById(0)->getIntensityArray()->data[0], 201+i)
+    TEST_REAL_SIMILAR(maps[i+1].lower, 400+i*25)
+    TEST_REAL_SIMILAR(maps[i+1].upper, 425+i*25)
+  }
+}
+END_SECTION
+
+START_SECTION((std::vector< OpenSwath::SwathMap > loadSplit(StringList file_list, String tmp, 
       boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="normal")))
 {
   std::vector<String> swath_filenames;
@@ -158,6 +180,38 @@ START_SECTION(( std::vector< OpenSwath::SwathMap > loadSplit(StringList file_lis
   storeSplitSwathFile(swath_filenames);
   boost::shared_ptr<ExperimentalSettings> meta = boost::shared_ptr<ExperimentalSettings>(new ExperimentalSettings());
   std::vector< OpenSwath::SwathMap > maps = SwathFile().loadSplit(swath_filenames, "./", meta);
+
+  // ensure they are sorted ... 
+  std::sort(maps.begin(), maps.end(), sortSwathMaps);
+
+  TEST_EQUAL(maps.size(), 5)
+  TEST_EQUAL(maps[0].ms1, true)
+  for (Size i = 0; i< maps.size() -1; i++)
+  {
+    TEST_EQUAL(maps[i+1].ms1, false)
+    TEST_EQUAL(maps[i+1].sptr->getNrSpectra(), 1)
+    TEST_EQUAL(maps[i+1].sptr->getSpectrumById(0)->getMZArray()->data.size(), 1)
+    TEST_REAL_SIMILAR(maps[i+1].sptr->getSpectrumById(0)->getMZArray()->data[0], 101+i)
+    TEST_REAL_SIMILAR(maps[i+1].sptr->getSpectrumById(0)->getIntensityArray()->data[0], 201+i)
+    TEST_REAL_SIMILAR(maps[i+1].lower, 400+i*25)
+    TEST_REAL_SIMILAR(maps[i+1].upper, 425+i*25)
+  }
+
+}
+END_SECTION
+
+START_SECTION(([EXTRA]std::vector< OpenSwath::SwathMap > loadSplit(StringList file_list, String tmp, 
+      boost::shared_ptr<ExperimentalSettings>& exp_meta, String readoptions="cache")))
+{
+  std::vector<String> swath_filenames;
+  swath_filenames.push_back("swathFile_2_ms1.tmp");
+  swath_filenames.push_back("swathFile_2_sw1.tmp");
+  swath_filenames.push_back("swathFile_2_sw2.tmp");
+  swath_filenames.push_back("swathFile_2_sw3.tmp");
+  swath_filenames.push_back("swathFile_2_sw4.tmp");
+  storeSplitSwathFile(swath_filenames);
+  boost::shared_ptr<ExperimentalSettings> meta = boost::shared_ptr<ExperimentalSettings>(new ExperimentalSettings());
+  std::vector< OpenSwath::SwathMap > maps = SwathFile().loadSplit(swath_filenames, "./", meta, "cache");
 
   // ensure they are sorted ... 
   std::sort(maps.begin(), maps.end(), sortSwathMaps);

@@ -985,6 +985,7 @@ protected:
     registerStringOption_("readOptions", "<name>", "normal", "Whether to run OpenSWATH directly on the input data, cache data to disk first or to perform a datareduction step first", false);
     setValidStrings_("readOptions", StringList::create("normal,cache,reduce,reduce_iterative"));
 
+    // TODO terminal slash !
     registerStringOption_("tempDirectory", "<tmp>", "/tmp/", "Temporary directory to store cached files for example", false);
 
     registerStringOption_("extraction_function", "<name>", "tophat", "Function used to extract the signal", false);

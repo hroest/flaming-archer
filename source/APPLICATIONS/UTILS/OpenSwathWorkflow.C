@@ -428,10 +428,11 @@ namespace OpenMS
     */
     void performExtraction(const std::vector< OpenSwath::SwathMap > & swath_maps,
       const TransformationDescription trafo,
-      ChromExtractParams cp, OpenSwath::LightTargetedExperiment& transition_exp, 
-      FeatureMap<>& out_featureFile, String out,
-      Param& feature_finder_param, OpenSwathTSVWriter & tsv_writer, 
-      MSDataWritingConsumer * chromConsumer, int batchSize)
+      const ChromExtractParams cp, const Param& feature_finder_param,
+      const OpenSwath::LightTargetedExperiment& transition_exp, 
+      FeatureMap<>& out_featureFile, String out, 
+      OpenSwathTSVWriter & tsv_writer, MSDataWritingConsumer * chromConsumer, 
+      int batchSize)
     {
       tsv_writer.writeHeader();
 
@@ -439,7 +440,7 @@ namespace OpenMS
       trafo_inverse.invert();
 
 
-      std::cout << "Will analyze " << transition_exp.getTransitions().size() << " transitions in total." << std::endl;
+      std::cout << "Will analyze " << transition_exp.transitions.size() << " transitions in total." << std::endl;
       int progress = 0;
       this->startProgress(0, swath_maps.size(), "Extracting and scoring transitions");
       
@@ -723,10 +724,10 @@ namespace OpenMS
 
     /// Helper function to score a set of chromatograms
     void scoreAllChromatograms(OpenSwath::SpectrumAccessPtr input,
-           OpenSwath::SpectrumAccessPtr swath_map,
+           const OpenSwath::SpectrumAccessPtr swath_map,
            OpenSwath::LightTargetedExperiment& transition_exp, 
-           TransformationDescription trafo, double rt_extraction_window, 
-           FeatureMap<Feature>& output, Param& feature_finder_param, OpenSwathTSVWriter & tsv_writer)
+           TransformationDescription trafo, const double rt_extraction_window, 
+           FeatureMap<Feature>& output, const Param& feature_finder_param, OpenSwathTSVWriter & tsv_writer)
     {
       typedef OpenSwath::LightTransition TransitionType;
       // a transition group holds the MSSpectra with the Chromatogram peaks from above
@@ -1256,8 +1257,9 @@ protected:
     OpenSwathTSVWriter tsvwriter(out_tsv, "/tmp/out.featureXML");
     OpenSwathWorkflow wf;
     wf.setLogType(log_type_);
-    wf.performExtraction(swath_maps, trafo_rtnorm, cp, transition_exp, out_featureFile, out,
-        feature_finder_param, tsvwriter, chromConsumer, batchSize);
+
+    wf.performExtraction(swath_maps, trafo_rtnorm, cp, feature_finder_param, transition_exp,
+        out_featureFile, out, tsvwriter, chromConsumer, batchSize);
     if (!out.empty())
     {
       addDataProcessing_(out_featureFile, getProcessingInfo_(DataProcessing::QUANTITATION));

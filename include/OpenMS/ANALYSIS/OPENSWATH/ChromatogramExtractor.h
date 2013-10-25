@@ -173,7 +173,7 @@ public:
     void extractChromatograms(const OpenSwath::SpectrumAccessPtr input, 
         std::vector< OpenSwath::ChromatogramPtr >& output, 
         std::vector<ExtractionCoordinates> extraction_coordinates,
-        double& mz_extraction_window, bool ppm, String filter)
+        double mz_extraction_window, bool ppm, String filter)
     {
       ChromatogramExtractorAlgorithm().extractChromatograms(input, output, 
           extraction_coordinates, mz_extraction_window, ppm, filter);

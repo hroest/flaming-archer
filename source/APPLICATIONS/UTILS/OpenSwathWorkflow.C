@@ -460,7 +460,10 @@ namespace OpenMS
         if (transition_exp_used_all.getTransitions().size() == 0) { continue;}
 
         int batch_size;
-        if (batchSize == 0) {batch_size = transition_exp_used_all.getTransitions().size();}
+        if (batchSize <= 0 || batchSize >= (int)transition_exp_used_all.getPeptides().size()) 
+        {
+          batch_size = transition_exp_used_all.getPeptides().size();
+        }
         else {batch_size = batchSize;}
 #ifdef _OPENMP
 #pragma omp critical (featureFinder)
@@ -469,22 +472,14 @@ namespace OpenMS
 #ifdef _OPENMP
           omp_get_thread_num() << " " <<
 #endif
-          "will analyze " << transition_exp_used_all.getTransitions().size() << 
-          " transitions from SWATH " << i << " in batches of " << batch_size << std::endl; }
-        for (size_t j = 0; j < transition_exp_used_all.getTransitions().size() / batch_size; j++)
+          "will analyze " << transition_exp_used_all.getPeptides().size() <<  " peptides and "
+          << transition_exp_used_all.getTransitions().size() <<  " transitions "
+          "from SWATH " << i << " in batches of " << batch_size << std::endl; }
+        for (size_t j = 0; j <= (transition_exp_used_all.getPeptides().size() / batch_size) ; j++)
         {
-
-          // compute batch start/end
-          size_t start = j*batch_size;
-          size_t end = j*batch_size+batch_size;
-          if (end > transition_exp_used_all.getTransitions().size() ) end = transition_exp_used_all.getTransitions().size();
-
           // Create the new, batch-size transition experiment
           OpenSwath::LightTargetedExperiment transition_exp_used;
-          transition_exp_used.proteins = transition_exp_used_all.proteins;
-          transition_exp_used.peptides = transition_exp_used_all.peptides;
-          transition_exp_used.transitions.insert(transition_exp_used.transitions.end(), 
-              transition_exp_used_all.transitions.begin() + start, transition_exp_used_all.transitions.begin() + end);
+          selectPeptidesForBatch_(transition_exp_used_all, transition_exp_used, batch_size, j);
 
           // Step 2: extract these transitions
           ChromatogramExtractor extractor;
@@ -561,6 +556,39 @@ namespace OpenMS
     }
 
   private:
+
+    void selectPeptidesForBatch_(const OpenSwath::LightTargetedExperiment& transition_exp_used_all, 
+      OpenSwath::LightTargetedExperiment& transition_exp_used, int batch_size, size_t j)
+    {
+      // compute batch start/end
+      size_t start = j*batch_size;
+      size_t end = j*batch_size+batch_size;
+      if (end > transition_exp_used_all.peptides.size() ) {end = transition_exp_used_all.peptides.size();}
+
+      // Create the new, batch-size transition experiment
+      transition_exp_used.proteins = transition_exp_used_all.proteins;
+      transition_exp_used.peptides.insert(transition_exp_used.peptides.end(), 
+          transition_exp_used_all.peptides.begin() + start, transition_exp_used_all.peptides.begin() + end);
+      copyBatchTransitions_(transition_exp_used.peptides, transition_exp_used_all.transitions, transition_exp_used.transitions);
+    }
+
+    void copyBatchTransitions_(const std::vector<OpenSwath::LightPeptide>& used_peptides, 
+        const std::vector<OpenSwath::LightTransition>& all_transitions, std::vector<OpenSwath::LightTransition>& output)
+    {
+      std::set<std::string> selected_peptides;
+      for (Size i = 0; i < used_peptides.size(); i++)
+      {
+        selected_peptides.insert(used_peptides[i].id);
+      }
+
+      for (Size i = 0; i < all_transitions.size(); i++)
+      {
+        if (selected_peptides.find(all_transitions[i].peptide_ref) != selected_peptides.end())
+        {
+          output.push_back(all_transitions[i]);
+        }
+      }
+    }
 
     void simpleExtractChromatograms(const std::vector< OpenSwath::SwathMap > & swath_maps,
       const OpenMS::TargetedExperiment & irt_transitions, 

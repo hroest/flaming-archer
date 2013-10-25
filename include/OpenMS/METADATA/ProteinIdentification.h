@@ -79,7 +79,7 @@ public:
         probability(0.0), accessions()
       {}
 
-      bool operator==(const ProteinGroup rhs) const
+      bool operator==(const ProteinGroup& rhs) const
       {
         return probability == rhs.probability &&
                accessions == rhs.accessions;

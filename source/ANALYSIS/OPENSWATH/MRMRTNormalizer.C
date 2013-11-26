@@ -39,7 +39,10 @@ namespace OpenMS
 
   int MRMRTNormalizer::outlier_candidate(std::vector<double>& x, std::vector<double>& y)
   {
-    // Returns candidate outlier: A linear regression and rsq is calculated for the data points with one removed pair. The combination resulting in highest rsq is considered corresponding to the outlier candidate. The corresponding iterator position is then returned.
+    // Returns candidate outlier: A linear regression and rsq is calculated for
+    // the data points with one removed pair. The combination resulting in
+    // highest rsq is considered corresponding to the outlier candidate. The
+    // corresponding iterator position is then returned.
     std::vector<double> x_tmp, y_tmp, rsq_tmp;
 
     for (Size i = 0; i < x.size(); i++)
@@ -57,7 +60,8 @@ namespace OpenMS
     return max_element(rsq_tmp.begin(), rsq_tmp.end()) - rsq_tmp.begin();
   }
 
-  std::vector<std::pair<double, double> > MRMRTNormalizer::rm_outliers(std::vector<std::pair<double, double> >& pairs, double rsq_limit, double coverage_limit)
+  std::vector<std::pair<double, double> > MRMRTNormalizer::rm_outliers(
+      std::vector<std::pair<double, double> >& pairs, double rsq_limit, double coverage_limit, bool use_chauvenet)
   {
     if (pairs.size() < 2)
     {
@@ -105,7 +109,9 @@ namespace OpenMS
         // get candidate outlier: removal of which datapoint results in best rsq?
         pos = outlier_candidate(x, y);
 
-        if (chauvenet(residuals, pos)) // test for outlier: is the residual an outlier according to Chauvenet's criterion?
+        // remove if residual is an outlier according to Chauvenet's criterion
+        // or if testing is turned off
+        if (!use_chauvenet || chauvenet(residuals, pos))
         {
           x.erase(x.begin() + pos);
           y.erase(y.begin() + pos);
